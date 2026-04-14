@@ -1,831 +1,728 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NBA 2026 플레이오프 브래킷</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NBA 2026 플레이오프 브래킷</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--s1:#161b27;--s2:#1c2333;
+  --bd:#30384f;--tx:#e6eaf4;--mu:#6e7a9a;
+  --blue:#1d428a;--red:#c8102e;--gold:#ffc72c;--green:#22c55e;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
 
-    :root {
-      --bg: #0d1117;
-      --surface: #161b27;
-      --surface2: #1c2333;
-      --border: #30384f;
-      --text: #e6eaf4;
-      --muted: #6e7a9a;
-      --blue: #1d428a;
-      --blue2: #2554a8;
-      --red: #c8102e;
-      --gold: #ffc72c;
-      --green: #22c55e;
-      --radius: 12px;
-    }
+/* ── 헤더 ── */
+header{
+  background:linear-gradient(135deg,#0d1f4d,#1a0a2e);
+  border-bottom:2px solid var(--gold);padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;
+}
+header h1{font-size:0.95rem;font-weight:700}
+.uchip{background:rgba(255,199,44,.12);border:1px solid rgba(255,199,44,.3);
+  color:var(--gold);padding:5px 12px;border-radius:20px;font-size:0.78rem;cursor:pointer;display:none}
 
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+/* ── 로그인 ── */
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 54px)}
+.lcard{background:var(--s1);border:1px solid var(--bd);border-radius:18px;
+  padding:32px;width:100%;max-width:360px;margin:16px}
+.lcard .ico{text-align:center;font-size:2.8rem;margin-bottom:4px}
+.lcard h2{text-align:center;font-size:1.2rem;margin-bottom:4px}
+.lcard p{text-align:center;color:var(--mu);font-size:0.82rem;margin-bottom:20px}
+.trow{display:flex;background:var(--bg);border-radius:9px;padding:3px;margin-bottom:18px;gap:3px}
+.tpill{flex:1;padding:8px;background:transparent;border:none;color:var(--mu);
+  border-radius:7px;cursor:pointer;font-size:0.85rem;transition:all .15s}
+.tpill.on{background:var(--blue);color:#fff}
+.fld{margin-bottom:12px}
+.fld label{display:block;font-size:0.75rem;color:var(--mu);margin-bottom:4px}
+.fld input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);
+  color:var(--tx);border-radius:8px;font-size:0.9rem}
+.fld input:focus{outline:none;border-color:var(--gold)}
+.btn{padding:11px 18px;border:none;border-radius:9px;font-size:0.88rem;font-weight:600;
+  cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+.btn:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:default;transform:none!important}
+.btn-full{width:100%;justify-content:center}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-gold{background:var(--gold);color:#111}
+.btn-ghost{background:transparent;border:1px solid var(--bd);color:var(--tx)}
+.toast{padding:8px 0;font-size:0.82rem;text-align:center;min-height:28px}
+.toast.err{color:#f87171}.toast.ok{color:var(--green)}
 
-    /* ── 헤더 ── */
-    header {
-      background: linear-gradient(135deg, #0d1f4d 0%, #1a0a2e 100%);
-      border-bottom: 2px solid var(--gold);
-      padding: 14px 20px;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 100;
-    }
-    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.3px; }
-    .header-right { display: flex; align-items: center; gap: 12px; }
-    .user-chip {
-      background: rgba(255,199,44,0.12); border: 1px solid rgba(255,199,44,0.3);
-      color: var(--gold); padding: 5px 12px; border-radius: 20px;
-      font-size: 0.8rem; cursor: pointer;
-    }
+/* ── 메인 레이아웃 ── */
+#main-screen{display:none;padding-bottom:64px}
+.bnav{position:fixed;bottom:0;left:0;right:0;background:var(--s1);
+  border-top:1px solid var(--bd);display:flex;z-index:200}
+.nbtn{flex:1;padding:11px 6px;background:transparent;border:none;color:var(--mu);
+  cursor:pointer;font-size:0.68rem;display:flex;flex-direction:column;align-items:center;gap:2px}
+.nbtn .ic{font-size:1.2rem}
+.nbtn.on{color:var(--gold)}
+.panel{display:none;padding:14px}
+.panel.on{display:block}
 
-    /* ── 로그인 ── */
-    #login-screen {
-      display: flex; align-items: center; justify-content: center;
-      min-height: calc(100vh - 56px);
-    }
-    .login-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 18px; padding: 36px; width: 100%; max-width: 380px; margin: 16px;
-    }
-    .login-card .logo { text-align: center; font-size: 3rem; margin-bottom: 6px; }
-    .login-card h2 { text-align: center; font-size: 1.3rem; margin-bottom: 4px; }
-    .login-card p { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+/* ── 브래킷 패널 ── */
+.bracket-notice{
+  background:rgba(255,199,44,.08);border:1px solid rgba(255,199,44,.2);
+  border-radius:9px;padding:10px 13px;font-size:0.8rem;color:var(--gold);
+  margin-bottom:12px;line-height:1.5
+}
+.bracket-save-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s1);border:1px solid var(--bd);
+  border-radius:10px;padding:10px 14px;margin-bottom:14px
+}
+.bracket-save-bar .prog{flex:1;font-size:0.8rem;color:var(--mu)}
+.bracket-save-bar .prog b{color:var(--gold)}
 
-    .tab-row { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 20px; gap: 4px; }
-    .tab-pill {
-      flex: 1; padding: 9px; background: transparent; border: none;
-      color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 0.9rem;
-      transition: all 0.2s;
-    }
-    .tab-pill.on { background: var(--blue); color: #fff; }
+/* 브래킷 스크롤 컨테이너 */
+.bracket-scroll{overflow-x:auto;overflow-y:visible;padding:8px 0 16px;
+  -webkit-overflow-scrolling:touch}
+.bracket-arena{
+  display:flex;align-items:stretch;gap:0;
+  position:relative;min-height:540px;
+  width:max-content;margin:0 auto;
+}
 
-    .field { margin-bottom: 14px; }
-    .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
-    .field input {
-      width: 100%; padding: 11px 14px; background: var(--bg);
-      border: 1px solid var(--border); color: var(--text);
-      border-radius: 9px; font-size: 0.95rem; transition: border-color 0.2s;
-    }
-    .field input:focus { outline: none; border-color: var(--gold); }
+/* 라운드 컬럼 헤더 */
+.round-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;
+  color:var(--mu);text-align:center;padding:0 0 8px;white-space:nowrap}
+.round-label.gold{color:var(--gold)}
 
-    .btn {
-      padding: 12px 20px; border: none; border-radius: 10px;
-      font-size: 0.9rem; font-weight: 600; cursor: pointer;
-      transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
-    .btn:disabled { opacity: 0.5; cursor: default; transform: none !important; }
-    .btn-full { width: 100%; justify-content: center; }
-    .btn-blue { background: var(--blue); color: #fff; }
-    .btn-gold { background: var(--gold); color: #111; }
-    .btn-red { background: var(--red); color: #fff; }
-    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 7px; }
+/* 라운드 컬럼 */
+.rcol{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:space-around;
+  width:158px;flex-shrink:0;align-self:stretch;
+  position:relative;z-index:2;
+}
 
-    .toast { padding: 10px 0; font-size: 0.85rem; text-align: center; border-radius: 8px; min-height: 32px; }
-    .toast.err { color: #f87171; }
-    .toast.ok { color: var(--green); }
 
-    /* ── 바텀 탭 ── */
-    #main-screen { display: none; padding-bottom: 72px; }
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--surface); border-top: 1px solid var(--border);
-      display: flex; z-index: 100;
-    }
-    .nav-btn {
-      flex: 1; padding: 12px 6px; background: transparent; border: none;
-      color: var(--muted); cursor: pointer; font-size: 0.7rem;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      transition: color 0.2s;
-    }
-    .nav-btn .icon { font-size: 1.3rem; }
-    .nav-btn.on { color: var(--gold); }
+/* 파이널 센터 컬럼 */
+.finals-center{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;width:178px;flex-shrink:0;
+  position:relative;z-index:2;padding:0 4px;
+}
+.finals-center .round-label{color:var(--gold)}
 
-    /* ── 탭 패널 ── */
-    .panel { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
-    .panel.on { display: block; }
-    .panel-title {
-      font-size: 1.05rem; font-weight: 700;
-      margin-bottom: 16px; color: var(--text);
-    }
+/* 경기 카드 */
+.mc{
+  background:var(--s1);border:1.5px solid var(--bd);
+  border-radius:10px;overflow:hidden;width:148px;
+  transition:border-color .2s;
+}
+.mc.hp{border-color:rgba(255,199,44,.45)}  /* has-pick */
+.mc.locked{opacity:.78}
+.mc-hdr{padding:5px 9px;background:rgba(255,255,255,.02);
+  border-bottom:1px solid var(--bd);font-size:0.65rem;color:var(--mu);
+  display:flex;justify-content:space-between;align-items:center}
+.bgl{background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:0.6rem}
+.bgd{background:#1b7a4a;color:#fff;padding:1px 6px;border-radius:10px;font-size:0.6rem}
 
-    /* ── 브래킷 ── */
-    .notice-bar {
-      background: rgba(255,199,44,0.1); border: 1px solid rgba(255,199,44,0.25);
-      border-radius: 10px; padding: 11px 14px; font-size: 0.82rem; color: var(--gold);
-      margin-bottom: 16px; line-height: 1.5;
-    }
-    .round-header {
-      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px;
-      color: var(--muted); margin: 20px 0 10px; padding-bottom: 6px;
-      border-bottom: 1px solid var(--border);
-    }
-    .round-header span { color: var(--gold); margin-right: 6px; }
+/* 팀 버튼 */
+.tb{
+  width:100%;padding:9px 9px;background:transparent;border:none;
+  color:var(--tx);display:flex;align-items:center;gap:7px;
+  cursor:pointer;font-size:0.78rem;text-align:left;
+  transition:background .12s;border-bottom:1px solid var(--bd);
+  position:relative;
+}
+.tb:last-of-type{border-bottom:none}
+.tb:hover:not(:disabled){background:rgba(255,255,255,.04)}
+.tb.picked{background:rgba(255,199,44,.14);color:var(--gold);font-weight:600}
+.tb.winner-r{background:rgba(34,197,94,.08)}
+.tb.loser-r{opacity:.3}
+.tb.tbd-t{cursor:default}
+.tb:disabled{cursor:default}
+.tb .lg{width:26px;height:26px;border-radius:50%;object-fit:contain;flex-shrink:0;
+  background:rgba(255,255,255,.04)}
+.tb .lph{width:26px;height:26px;border-radius:50%;background:var(--s2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.52rem;color:var(--mu);flex-shrink:0;line-height:1.2;text-align:center}
+.tb .tn{flex:1;line-height:1.2;font-size:0.76rem}
+.tb .tn.tbd-n{color:var(--mu);font-style:italic;font-size:0.7rem}
+.tb .star{color:var(--gold);font-size:0.75rem;flex-shrink:0}
+.tb .cok{color:var(--green);font-size:0.85rem;flex-shrink:0}
+.tb .cno{color:#f87171;font-size:0.85rem;flex-shrink:0}
 
-    /* 경기 카드 */
-    .game-card {
-      background: var(--surface); border: 1.5px solid var(--border);
-      border-radius: var(--radius); overflow: hidden;
-      margin-bottom: 10px; transition: border-color 0.2s;
-    }
-    .game-card.has-pick { border-color: rgba(255,199,44,0.4); }
-    .game-card.locked { opacity: 0.8; }
+/* 파이널 스코어 섹션 */
+.fscore{padding:9px 9px;background:rgba(200,16,46,.06);border-top:1px solid var(--bd)}
+.fscore .fl{font-size:0.68rem;color:var(--mu);margin-bottom:6px}
+.schips{display:flex;gap:4px;flex-wrap:wrap}
+.sc{padding:4px 10px;border:1px solid var(--bd);background:var(--bg);
+  color:var(--tx);border-radius:16px;font-size:0.75rem;cursor:pointer;transition:all .12s}
+.sc.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
+.sc:disabled{cursor:default}
+.sc-result{font-size:0.7rem;color:var(--gold);margin-top:5px}
 
-    .game-meta {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 7px 13px; background: rgba(255,255,255,0.02);
-      border-bottom: 1px solid var(--border);
-      font-size: 0.72rem; color: var(--muted);
-    }
-    .badge-lock { background: var(--red); color: #fff; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; }
-    .badge-done { background: #1b7a4a; color: #fff; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; }
+/* SVG 오버레이 */
+#blines{position:absolute;top:0;left:0;width:100%;height:100%;
+  pointer-events:none;z-index:1;overflow:visible}
 
-    /* 팀 버튼 */
-    .team-btn {
-      width: 100%; padding: 13px; background: transparent; border: none;
-      color: var(--text); text-align: left; cursor: pointer;
-      display: flex; align-items: center; gap: 11px;
-      transition: background 0.15s;
-      border-bottom: 1px solid var(--border);
-      position: relative;
-    }
-    .team-btn:last-of-type { border-bottom: none; }
-    .team-btn:hover:not(:disabled) { background: rgba(255,255,255,0.04); }
-    .team-btn.selected { background: rgba(29,66,138,0.25); }
-    .team-btn.winner-team { background: rgba(34,197,94,0.1); }
-    .team-btn.loser-team { opacity: 0.4; }
-    .team-btn:disabled { cursor: default; }
+/* ── 순위표 ── */
+.lb-wrap{max-width:560px;margin:0 auto}
+.lb-hdr{display:grid;grid-template-columns:44px 1fr 60px 60px;
+  padding:9px 12px;font-size:0.72rem;color:var(--mu);border-bottom:1px solid var(--bd)}
+.lb-row{display:grid;grid-template-columns:44px 1fr 60px 60px;
+  padding:10px 12px;border-bottom:1px solid var(--bd);font-size:0.85rem}
+.lb-row.me{background:rgba(29,66,138,.18)}
+.lb-row:hover{background:rgba(255,255,255,.02)}
+.rno{font-weight:700;text-align:center}
+.r1c{color:var(--gold)}.r2c{color:#c0c0c0}.r3c{color:#cd7f32}
+.sc-cell{color:var(--gold);font-weight:700;text-align:right}
+.cr-cell{color:var(--mu);font-size:0.78rem;text-align:right}
+.lb-refresh{display:flex;align-items:center;gap:6px;margin-bottom:10px;
+  font-size:0.8rem;color:var(--mu)}
+.lb-refresh button{background:none;border:none;color:var(--mu);cursor:pointer;font-size:1rem}
 
-    .team-logo {
-      width: 34px; height: 34px; border-radius: 50%;
-      object-fit: contain; background: rgba(255,255,255,0.05);
-      flex-shrink: 0;
-    }
-    .team-logo-placeholder {
-      width: 34px; height: 34px; border-radius: 50%;
-      background: var(--surface2); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.65rem; color: var(--muted); flex-shrink: 0; text-align: center;
-      line-height: 1.2;
-    }
-    .team-name { flex: 1; font-size: 0.9rem; }
-    .team-name.tbd { color: var(--muted); font-style: italic; font-size: 0.82rem; }
-    .pick-star { color: var(--gold); font-size: 0.9rem; }
-    .check-ok { color: var(--green); font-size: 1rem; }
-    .check-no { color: var(--red); font-size: 1rem; }
+/* ── 내 예측 ── */
+.mp-wrap{max-width:560px;margin:0 auto}
+.mp-rhdr{font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;
+  color:var(--mu);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.mp-card{background:var(--s1);border:1px solid var(--bd);border-radius:9px;
+  padding:11px 13px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mp-match{font-size:0.72rem;color:var(--mu);margin-bottom:2px}
+.mp-team{font-size:0.88rem;font-weight:600}
+.mp-sub{font-size:0.68rem;color:var(--mu);margin-top:2px}
+.rb{padding:3px 9px;border-radius:14px;font-size:0.75rem;font-weight:700;white-space:nowrap}
+.rb-ok{background:rgba(34,197,94,.15);color:var(--green)}
+.rb-no{background:rgba(200,16,46,.15);color:#f87171}
+.rb-wt{background:rgba(110,122,154,.12);color:var(--mu)}
+.my-total{text-align:right;padding:12px 0;font-size:1.05rem;color:var(--gold);
+  font-weight:700;border-top:1px solid var(--bd);margin-top:6px}
 
-    /* 픽률 바 */
-    .pickrate-row {
-      display: flex; align-items: center; gap: 0;
-      height: 22px; border-top: 1px solid var(--border);
-      overflow: hidden; font-size: 0.72rem; font-weight: 700;
-    }
-    .pr-left {
-      background: rgba(200,16,46,0.35); color: #fff;
-      display: flex; align-items: center; padding: 0 8px;
-      height: 100%; transition: width 0.4s ease; min-width: 32px;
-    }
-    .pr-right {
-      background: rgba(29,66,138,0.5); color: #fff;
-      display: flex; align-items: center; justify-content: flex-end;
-      padding: 0 8px; height: 100%; flex: 1;
-      transition: width 0.4s ease;
-    }
-    .pr-total { 
-      padding: 0 8px; color: var(--muted); font-size: 0.68rem;
-      white-space: nowrap; background: var(--surface2);
-      display: flex; align-items: center; height: 100%;
-    }
-
-    /* 파이널 스코어 */
-    .finals-score-section {
-      padding: 11px 13px;
-      background: rgba(200,16,46,0.07);
-      border-top: 1px solid var(--border);
-    }
-    .finals-score-section .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 7px; }
-    .score-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .score-chip {
-      padding: 5px 14px; border: 1px solid var(--border);
-      background: var(--bg); color: var(--text); border-radius: 20px;
-      font-size: 0.82rem; cursor: pointer; transition: all 0.15s;
-    }
-    .score-chip.on { background: var(--red); border-color: var(--red); color: #fff; font-weight: 700; }
-    .score-chip:disabled { cursor: default; }
-
-    /* 제출 고정 버튼 */
-    .submit-bar {
-      position: fixed; bottom: 62px; left: 0; right: 0;
-      padding: 10px 16px;
-      background: linear-gradient(to top, var(--bg) 60%, transparent);
-      display: none;
-    }
-    .submit-bar .inner {
-      max-width: 640px; margin: 0 auto;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .submit-bar .progress { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
-    .submit-bar .progress b { color: var(--gold); }
-
-    /* ── 리더보드 ── */
-    .lb-header {
-      display: grid; grid-template-columns: 44px 1fr 56px 56px;
-      padding: 8px 12px; font-size: 0.75rem; color: var(--muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .lb-row {
-      display: grid; grid-template-columns: 44px 1fr 56px 56px;
-      padding: 11px 12px; border-bottom: 1px solid var(--border);
-      align-items: center; font-size: 0.88rem;
-      transition: background 0.15s;
-    }
-    .lb-row:hover { background: rgba(255,255,255,0.02); }
-    .lb-row.me { background: rgba(29,66,138,0.18); }
-    .rank-no { font-weight: 700; font-size: 0.9rem; text-align: center; }
-    .r1 { color: var(--gold); }
-    .r2 { color: #c0c0c0; }
-    .r3 { color: #cd7f32; }
-    .lb-score { color: var(--gold); font-weight: 700; text-align: right; }
-    .lb-correct { color: var(--muted); font-size: 0.8rem; text-align: right; }
-    .lb-me-tag { font-size: 0.68rem; color: var(--gold); }
-    .lb-refresh { 
-      display: flex; align-items: center; gap: 6px; margin-bottom: 12px;
-      font-size: 0.8rem; color: var(--muted);
-    }
-    .lb-refresh button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
-
-    /* ── 내 예측 ── */
-    .my-pick-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 13px; margin-bottom: 8px;
-      display: flex; justify-content: space-between; align-items: center; gap: 10px;
-    }
-    .my-pick-matchup { font-size: 0.75rem; color: var(--muted); margin-bottom: 3px; }
-    .my-pick-team { font-size: 0.9rem; font-weight: 600; }
-    .my-pick-score-bonus { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
-    .result-badge {
-      padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; white-space: nowrap;
-    }
-    .rb-ok { background: rgba(34,197,94,0.15); color: var(--green); }
-    .rb-no { background: rgba(200,16,46,0.15); color: #f87171; }
-    .rb-wait { background: rgba(110,122,154,0.15); color: var(--muted); }
-    .my-total { 
-      text-align: right; padding: 14px 0; 
-      font-size: 1.1rem; color: var(--gold); font-weight: 700;
-      border-top: 1px solid var(--border); margin-top: 8px;
-    }
-
-    /* ── 공통 ── */
-    .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 0.9rem; }
-    .spin-wrap { text-align: center; padding: 40px; }
-    .spinner {
-      display: inline-block; width: 28px; height: 28px;
-      border: 3px solid var(--border); border-top-color: var(--gold);
-      border-radius: 50%; animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    @media (max-width: 480px) {
-      .panel { padding: 12px; }
-      .team-name { font-size: 0.82rem; }
-    }
-  </style>
+.spin-c{text-align:center;padding:40px}
+.sp{display:inline-block;width:26px;height:26px;border:3px solid var(--bd);
+  border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:36px;color:var(--mu);font-size:0.88rem}
+</style>
 </head>
 <body>
 
 <header>
   <h1>🏀 <span id="ev-title">NBA 2026 플레이오프 브래킷</span></h1>
-  <div class="header-right">
-    <div class="user-chip" id="user-chip" style="display:none" onclick="logout()">👤 <span id="nick-label"></span> ✕</div>
-  </div>
+  <div class="uchip" id="uchip" onclick="logout()">👤 <span id="unick"></span> ✕</div>
 </header>
 
-<!-- ── 로그인 ── -->
+<!-- 로그인 -->
 <div id="login-screen">
-  <div class="login-card">
-    <div class="logo">🏆</div>
-    <h2>브래킷 이벤트 참가</h2>
-    <p>닉네임 + 4자리 PIN으로 참가하세요</p>
-
-    <div class="tab-row">
-      <button class="tab-pill on" onclick="switchTab('login',this)">로그인</button>
-      <button class="tab-pill" onclick="switchTab('reg',this)">신규 참가</button>
+  <div class="lcard">
+    <div class="ico">🏆</div>
+    <h2>브래킷 이벤트</h2>
+    <p>닉네임 + 4자리 PIN으로 참가</p>
+    <div class="trow">
+      <button class="tpill on" onclick="stab('login',this)">로그인</button>
+      <button class="tpill" onclick="stab('reg',this)">신규 참가</button>
     </div>
-
     <div id="form-login">
-      <div class="field"><label>닉네임</label><input id="l-nick" placeholder="닉네임 입력" maxlength="20"></div>
-      <div class="field"><label>4자리 PIN</label><input id="l-pin" type="password" placeholder="••••" maxlength="4" inputmode="numeric"></div>
+      <div class="fld"><label>닉네임</label><input id="l-nick" placeholder="닉네임" maxlength="20"></div>
+      <div class="fld"><label>4자리 PIN</label><input id="l-pin" type="password" placeholder="••••" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-blue btn-full" onclick="doLogin()">로그인</button>
     </div>
-
     <div id="form-reg" style="display:none">
-      <div class="field"><label>닉네임 (최대 20자)</label><input id="r-nick" placeholder="사용할 닉네임" maxlength="20"></div>
-      <div class="field"><label>4자리 PIN 설정</label><input id="r-pin" type="password" placeholder="숫자 4자리" maxlength="4" inputmode="numeric"></div>
-      <div class="field"><label>PIN 확인</label><input id="r-pin2" type="password" placeholder="재입력" maxlength="4" inputmode="numeric"></div>
+      <div class="fld"><label>닉네임</label><input id="r-nick" placeholder="사용할 닉네임" maxlength="20"></div>
+      <div class="fld"><label>PIN 설정</label><input id="r-pin" type="password" placeholder="숫자 4자리" maxlength="4" inputmode="numeric"></div>
+      <div class="fld"><label>PIN 확인</label><input id="r-pin2" type="password" placeholder="재입력" maxlength="4" inputmode="numeric"></div>
       <button class="btn btn-gold btn-full" onclick="doReg()">참가 신청</button>
     </div>
-
-    <div class="toast" id="login-toast"></div>
+    <div class="toast" id="ltoast"></div>
   </div>
 </div>
 
-<!-- ── 메인 ── -->
+<!-- 메인 -->
 <div id="main-screen">
 
   <!-- 브래킷 패널 -->
   <div class="panel on" id="panel-bracket">
-    <div class="notice-bar" id="bracket-notice">⏳ 브래킷을 불러오는 중...</div>
-    <div id="bracket-body"></div>
+    <div class="bracket-notice" id="bnotice">⏳ 불러오는 중...</div>
+    <div class="bracket-save-bar" id="save-bar" style="display:none">
+      <div class="prog"><b id="p-done">0</b> / <b id="p-total">0</b> 경기 예측 완료</div>
+      <button class="btn btn-gold" id="save-btn" onclick="submitPicks()">💾 저장</button>
+    </div>
+    <div class="bracket-scroll">
+      <div class="bracket-arena" id="bracket-arena">
+        <svg id="blines"></svg>
+      </div>
+    </div>
   </div>
 
   <!-- 내 예측 패널 -->
   <div class="panel" id="panel-mypicks">
-    <div class="panel-title">✅ 내 예측</div>
-    <div id="mypicks-body"><div class="spin-wrap"><div class="spinner"></div></div></div>
+    <div class="mp-wrap">
+      <div style="font-size:1rem;font-weight:700;margin-bottom:14px">✅ 내 예측</div>
+      <div id="mp-body"><div class="spin-c"><div class="sp"></div></div></div>
+    </div>
   </div>
 
-  <!-- 리더보드 패널 -->
+  <!-- 순위표 패널 -->
   <div class="panel" id="panel-lb">
-    <div class="lb-refresh">
-      <span>🏆 실시간 순위표</span>
-      <button onclick="loadLeaderboard()" title="새로고침">🔄</button>
-      <span id="lb-updated"></span>
-    </div>
-    <div id="lb-body"><div class="spin-wrap"><div class="spinner"></div></div></div>
-  </div>
-
-  <!-- 제출 바 -->
-  <div class="submit-bar" id="submit-bar">
-    <div class="inner">
-      <div class="progress"><b id="pick-done">0</b> / <b id="pick-total">0</b> 경기 예측</div>
-      <button class="btn btn-gold btn-full" id="submit-btn" onclick="submitPicks()">💾 저장</button>
+    <div class="lb-wrap">
+      <div class="lb-refresh">
+        <span>🏆 실시간 순위표</span>
+        <button onclick="loadLb()" title="새로고침">🔄</button>
+        <span id="lb-ts" style="font-size:0.72rem"></span>
+      </div>
+      <div id="lb-body"><div class="spin-c"><div class="sp"></div></div></div>
     </div>
   </div>
 
-  <!-- 바텀 탭 -->
-  <nav class="bottom-nav">
-    <button class="nav-btn on" onclick="showPanel('bracket',this)"><span class="icon">📋</span>브래킷</button>
-    <button class="nav-btn" onclick="showPanel('mypicks',this)"><span class="icon">✅</span>내 예측</button>
-    <button class="nav-btn" onclick="showPanel('lb',this)"><span class="icon">🏆</span>순위표</button>
+  <nav class="bnav">
+    <button class="nbtn on" onclick="showPanel('bracket',this)"><span class="ic">📋</span>브래킷</button>
+    <button class="nbtn" onclick="showPanel('mypicks',this)"><span class="ic">✅</span>내 예측</button>
+    <button class="nbtn" onclick="showPanel('lb',this)"><span class="ic">🏆</span>순위표</button>
   </nav>
 </div>
 
 <script>
 // ── CONFIG ──────────────────────────────────
-const SUPABASE_URL  = 'https://oqlbyscmeqoyepevnpwr.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTc1NDYsImV4cCI6MjA5MTczMzU0Nn0.GlUepyFe0jeo7q2o5pxzzi1V9W-nI85_fosMu-rB5jg';
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
 // ────────────────────────────────────────────
 
-const { createClient } = supabase;
+const {createClient} = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-// ESPN 팀 로고 CDN 자동 매핑
-const LOGO_MAP = {
-  'OKC Thunder':            'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/okc.png',
-  'Oklahoma City Thunder':  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/okc.png',
-  'Boston Celtics':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/bos.png',
-  'New York Knicks':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/ny.png',
-  'Cleveland Cavaliers':    'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/cle.png',
-  'Detroit Pistons':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/det.png',
-  'Atlanta Hawks':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/atl.png',
-  'Toronto Raptors':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/tor.png',
-  'Houston Rockets':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/hou.png',
-  'Minnesota Timberwolves': 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/min.png',
-  'Denver Nuggets':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/den.png',
-  'Los Angeles Lakers':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/lal.png',
-  'Dallas Mavericks':       'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/dal.png',
-  'Phoenix Suns':           'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/phx.png',
-  'Portland Trail Blazers': 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/por.png',
-  'Golden State Warriors':  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/gs.png',
-  'LA Clippers':            'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/lac.png',
-  'San Antonio Spurs':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/sa.png',
-  'Memphis Grizzlies':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mem.png',
-  'Miami Heat':             'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mia.png',
-  'Philadelphia 76ers':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/phi.png',
-  'Orlando Magic':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/orl.png',
-  'Charlotte Hornets':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/cha.png',
-  'Sacramento Kings':       'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/sac.png',
-  'New Orleans Pelicans':   'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/no.png',
-  'Utah Jazz':              'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/utah.png',
-  'Milwaukee Bucks':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mil.png',
-  'Indiana Pacers':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/ind.png',
-  'Chicago Bulls':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/chi.png',
-  'Brooklyn Nets':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/bkn.png',
-  'Washington Wizards':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/wsh.png',
+// ESPN 로고 자동 매핑
+const LOGOS = {
+  'OKC Thunder':'okc','Oklahoma City Thunder':'okc',
+  'Boston Celtics':'bos','New York Knicks':'ny',
+  'Cleveland Cavaliers':'cle','Detroit Pistons':'det',
+  'Atlanta Hawks':'atl','Toronto Raptors':'tor',
+  'Houston Rockets':'hou','Minnesota Timberwolves':'min',
+  'Denver Nuggets':'den','Los Angeles Lakers':'lal',
+  'Dallas Mavericks':'dal','Phoenix Suns':'phx',
+  'Portland Trail Blazers':'por','Golden State Warriors':'gs',
+  'LA Clippers':'lac','San Antonio Spurs':'sa',
+  'Memphis Grizzlies':'mem','Miami Heat':'mia',
+  'Philadelphia 76ers':'phi','Orlando Magic':'orl',
+  'Charlotte Hornets':'cha','Sacramento Kings':'sac',
+  'New Orleans Pelicans':'no','Utah Jazz':'utah',
+  'Milwaukee Bucks':'mil','Indiana Pacers':'ind',
+  'Chicago Bulls':'chi','Brooklyn Nets':'bkn',
+  'Washington Wizards':'wsh',
 };
-function getLogo(team, override) {
+function logo(team, override) {
   if (override) return override;
-  return LOGO_MAP[team] || null;
+  const code = LOGOS[team];
+  return code ? `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${code}.png` : null;
 }
 
-const ROUND_LABEL = { 1:'1라운드', 2:'컨퍼런스 세미파이널', 3:'컨퍼런스 파이널', 4:'🏆 NBA 파이널' };
-const ROUND_ICON  = { 1:'①', 2:'②', 3:'③', 4:'🏆' };
+const RNAME = {1:'1라운드',2:'세미파이널',3:'컨퍼런스 파이널',4:'🏆 파이널'};
 const SCORES = ['4-0','4-1','4-2','4-3'];
 
-let CU = null; // current user
-let games = [];
-let savedPicks = {};    // game_id -> pick row
-let localPicks = {};    // game_id -> {picked_winner, finals_score}
-let pickRates = {};     // game_id -> {team: pct}
-let settings = {};
-let showPickrate = false;
+let CU=null, games=[], savedPicks={}, localPicks={}, pickRates={}, settings={};
 
-// ── SHA256 ───────────────────────────────────
-async function sha256(s) {
-  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+// ── SHA256 ──
+async function sha256(s){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+// ── IP 조회 ──
+async function getIP(){try{const r=await fetch('https://api.ipify.org?format=json');const d=await r.json();return d.ip;}catch{return null;}}
 
-// ── 로그인 UI ────────────────────────────────
-function switchTab(t, btn) {
-  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  document.getElementById('form-login').style.display = t==='login' ? '' : 'none';
-  document.getElementById('form-reg').style.display   = t==='reg'   ? '' : 'none';
-  document.getElementById('login-toast').textContent = '';
+// ── 로그인 ──
+function stab(t,btn){
+  document.querySelectorAll('.tpill').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('form-login').style.display=t==='login'?'':'none';
+  document.getElementById('form-reg').style.display=t==='reg'?'':'none';
+  document.getElementById('ltoast').textContent='';
 }
-function setToast(msg, ok=false) {
-  const el = document.getElementById('login-toast');
-  el.textContent = msg; el.className = 'toast ' + (ok?'ok':'err');
-}
+function toast(msg,ok=false){const el=document.getElementById('ltoast');el.textContent=msg;el.className='toast '+(ok?'ok':'err');}
 
-async function doLogin() {
-  const nick = document.getElementById('l-nick').value.trim();
-  const pin  = document.getElementById('l-pin').value.trim();
-  if (!nick || pin.length!==4) return setToast('닉네임과 4자리 PIN을 입력하세요.');
-  const btn = document.querySelector('#form-login .btn');
-  btn.disabled = true; btn.textContent = '확인 중...';
-  try {
-    const hash = await sha256(pin);
-    const {data,error} = await sb.from('users').select('*').eq('nickname',nick).eq('pin_hash',hash).single();
-    if (error||!data) { setToast('닉네임 또는 PIN이 맞지 않습니다.'); btn.disabled=false; btn.textContent='로그인'; return; }
-    CU = data; ls('set','user',data); initMain();
-  } catch(e) { setToast('오류: '+e.message); btn.disabled=false; btn.textContent='로그인'; }
+async function doLogin(){
+  const nick=document.getElementById('l-nick').value.trim();
+  const pin=document.getElementById('l-pin').value.trim();
+  if(!nick||pin.length!==4)return toast('닉네임과 4자리 PIN을 입력하세요.');
+  const btn=document.querySelector('#form-login .btn');
+  btn.disabled=true;btn.textContent='확인 중...';
+  try{
+    const hash=await sha256(pin);
+    const{data,error}=await sb.from('users').select('*').eq('nickname',nick).eq('pin_hash',hash).single();
+    if(error||!data){toast('닉네임 또는 PIN이 맞지 않습니다.');btn.disabled=false;btn.textContent='로그인';return;}
+    CU=data;lsSet('user',data);initMain();
+  }catch(e){toast('오류: '+e.message);btn.disabled=false;btn.textContent='로그인';}
 }
 
-async function doReg() {
-  const nick = document.getElementById('r-nick').value.trim();
-  const pin  = document.getElementById('r-pin').value.trim();
-  const pin2 = document.getElementById('r-pin2').value.trim();
-  if (!nick) return setToast('닉네임을 입력하세요.');
-  if (!/^\d{4}$/.test(pin)) return setToast('PIN은 숫자 4자리여야 합니다.');
-  if (pin !== pin2) return setToast('PIN이 일치하지 않습니다.');
-  const btn = document.querySelector('#form-reg .btn');
-  btn.disabled = true; btn.textContent = '등록 중...';
-  try {
-    const hash = await sha256(pin);
-    const {data,error} = await sb.from('users').insert({nickname:nick,pin_hash:hash}).select().single();
-    if (error) {
-      if(error.code==='23505') setToast('이미 사용 중인 닉네임입니다.');
-      else setToast('오류: '+error.message);
-      btn.disabled=false; btn.textContent='참가 신청'; return;
-    }
-    CU = data; ls('set','user',data);
-    setToast('✅ 참가 완료! 잠시 후 이동합니다.', true);
-    setTimeout(initMain, 800);
-  } catch(e) { setToast('오류: '+e.message); btn.disabled=false; btn.textContent='참가 신청'; }
+async function doReg(){
+  const nick=document.getElementById('r-nick').value.trim();
+  const pin=document.getElementById('r-pin').value.trim();
+  const pin2=document.getElementById('r-pin2').value.trim();
+  if(!nick)return toast('닉네임을 입력하세요.');
+  if(!/^\d{4}$/.test(pin))return toast('PIN은 숫자 4자리여야 합니다.');
+  if(pin!==pin2)return toast('PIN이 일치하지 않습니다.');
+  const btn=document.querySelector('#form-reg .btn');
+  btn.disabled=true;btn.textContent='등록 중...';
+  try{
+    const [hash,ip]=await Promise.all([sha256(pin),getIP()]);
+    const ua=navigator.userAgent.substring(0,200);
+    const{data,error}=await sb.from('users').insert({nickname:nick,pin_hash:hash,ip_address:ip,user_agent:ua}).select().single();
+    if(error){if(error.code==='23505')toast('이미 사용 중인 닉네임입니다.');else toast('오류: '+error.message);btn.disabled=false;btn.textContent='참가 신청';return;}
+    CU=data;lsSet('user',data);toast('✅ 참가 완료!',true);setTimeout(initMain,700);
+  }catch(e){toast('오류: '+e.message);btn.disabled=false;btn.textContent='참가 신청';}
 }
 
-function logout() {
-  if (!confirm('로그아웃 하시겠습니까?')) return;
-  ls('del','user'); location.reload();
-}
+function logout(){if(!confirm('로그아웃 하시겠습니까?'))return;lsDel('user');location.reload();}
 
-// ── 메인 초기화 ──────────────────────────────
-async function initMain() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display  = 'block'; // ← '' 아니라 'block'
-  document.getElementById('user-chip').style.display    = 'flex';
-  document.getElementById('nick-label').textContent     = CU.nickname;
-
-  try {
-    await loadSettings();
-    await loadAll();
-  } catch(e) {
-    console.error('데이터 로딩 오류:', e);
-  }
+// ── 메인 초기화 ──
+async function initMain(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('main-screen').style.display='block';
+  document.getElementById('uchip').style.display='';
+  document.getElementById('unick').textContent=CU.nickname;
+  try{await loadSettings();await loadAll();}catch(e){console.error(e);}
   renderBracket();
 }
 
-async function loadSettings() {
-  const {data, error} = await sb.from('settings').select('*');
-  if (error || !data) return;
-  data.forEach(r => settings[r.key] = r.value);
-  if (settings.event_title) document.getElementById('ev-title').textContent = settings.event_title;
-  showPickrate = settings.show_pickrate === 'true';
+async function loadSettings(){
+  const{data}=await sb.from('settings').select('*');
+  if(!data)return;
+  data.forEach(r=>settings[r.key]=r.value);
+  if(settings.event_title)document.getElementById('ev-title').textContent=settings.event_title;
 }
 
-async function loadAll() {
-  const [gRes, pRes, prRes] = await Promise.all([
+async function loadAll(){
+  const[g,p,pr]=await Promise.all([
     sb.from('games').select('*').order('round').order('game_order'),
-    sb.from('picks').select('*').eq('user_id', CU.id),
+    sb.from('picks').select('*').eq('user_id',CU.id),
     sb.from('pickrate_view').select('*'),
   ]);
-  games = gRes.data || [];
-  savedPicks = {}; localPicks = {};
-  (pRes.data||[]).forEach(pk => { savedPicks[pk.game_id] = pk; localPicks[pk.game_id] = {picked_winner:pk.picked_winner, finals_score:pk.finals_score}; });
-  pickRates = {};
-  (prRes.data||[]).forEach(r => {
-    if (!pickRates[r.game_id]) pickRates[r.game_id] = {};
-    pickRates[r.game_id][r.picked_winner] = { count: r.pick_count, pct: parseFloat(r.pct) };
+  games=g.data||[];
+  savedPicks={};localPicks={};
+  (p.data||[]).forEach(pk=>{savedPicks[pk.game_id]=pk;localPicks[pk.game_id]={picked_winner:pk.picked_winner,finals_score:pk.finals_score};});
+  pickRates={};
+  (pr.data||[]).forEach(r=>{
+    if(!pickRates[r.game_id])pickRates[r.game_id]={};
+    pickRates[r.game_id][r.picked_winner]={count:r.pick_count,pct:parseFloat(r.pct)};
   });
 }
 
-// ── 브래킷 렌더 ──────────────────────────────
-function renderBracket() {
-  const body = document.getElementById('bracket-body');
-  if (!games.length) {
-    document.getElementById('bracket-notice').textContent = '⏳ 관리자가 브래킷을 설정 중입니다. 잠시 후 새로고침 해주세요.';
-    body.innerHTML = '';
-    document.getElementById('submit-bar').style.display = 'none';
+// ── 브래킷 렌더링 ──────────────────────────────────
+function renderBracket(){
+  const arena=document.getElementById('bracket-arena');
+  const showPR=settings.show_pickrate==='true';
+
+  if(!games.length){
+    document.getElementById('bnotice').textContent='⏳ 관리자가 브래킷을 설정 중입니다. 잠시 후 새로고침 해주세요.';
+    document.getElementById('save-bar').style.display='none';
+    arena.innerHTML='<svg id="blines"></svg>';
     return;
   }
 
-  // 공지 업데이트
-  const allLocked = games.every(g => g.is_locked || !g.team1 || !g.team2);
-  const notice = document.getElementById('bracket-notice');
-  if (allLocked) {
-    notice.textContent = '🔒 예측이 마감되었습니다. 결과 발표를 기다려주세요.';
-  } else {
-    const available = games.filter(g=>g.team1&&g.team2&&!g.is_locked&&!g.winner);
-    notice.innerHTML = `⚠️ <b>1라운드부터 파이널까지 전체를 예측</b>하세요. 경기 마감 전까지 수정 가능합니다.<br><span style="font-size:0.78rem;opacity:0.8">팀을 고르면 다음 라운드 대진에 자동 반영됩니다.</span>`;
+  // 게임 그룹화
+  const G={WEST:{1:[],2:[],3:[]},EAST:{1:[],2:[],3:[]},FINALS:[]};
+  games.forEach(g=>{
+    if(g.round===4)G.FINALS.push(g);
+    else if(g.conference==='WEST'&&g.round<=3)G.WEST[g.round].push(g);
+    else if(g.conference==='EAST'&&g.round<=3)G.EAST[g.round].push(g);
+  });
+  [G.WEST[1],G.WEST[2],G.WEST[3],G.EAST[1],G.EAST[2],G.EAST[3]].forEach(arr=>arr.sort((a,b)=>a.game_order-b.game_order));
+
+  const proj=calcProj();
+  const showPRfn=(game)=>showPR||(settings.pickrate_after_lock==='true'&&game.is_locked);
+
+  function col(id,label,gamesArr,isGold=false){
+    let h=`<div class="rcol" id="${id}">`;
+    h+=`<div class="round-label ${isGold?'gold':''}">${label}</div>`;
+    gamesArr.forEach(game=>h+=mcCard(game,proj,showPRfn(game)));
+    h+='</div>';
+    return h;
   }
 
-  // 내 픽 기반 다음 라운드 팀 계산
-  const projectedTeams = calcProjectedTeams();
+  // 파이널 카드
+  const fg=G.FINALS[0]||null;
+  let finalsHtml=`<div class="finals-center">`;
+  finalsHtml+=`<div class="round-label gold">🏆 파이널</div>`;
+  finalsHtml+=fg?mcCard(fg,proj,showPRfn(fg)):'<div class="mc"><div class="mc-hdr">대기중</div></div>';
+  finalsHtml+='</div>';
 
-  let html = '';
-  const rounds = [...new Set(games.map(g=>g.round))].sort((a,b)=>a-b);
-  rounds.forEach(r => {
-    const rGames = games.filter(g=>g.round===r).sort((a,b)=>a.game_order-b.game_order);
-    html += `<div class="round-header"><span>${ROUND_ICON[r]}</span>${ROUND_LABEL[r]}</div>`;
-    rGames.forEach(game => { html += buildGameCard(game, projectedTeams); });
-  });
+  const html=
+    col('col-w1','1라운드',G.WEST[1])+
+    col('col-w2','세미파이널',G.WEST[2])+
+    col('col-w3','컨퍼런스 파이널',G.WEST[3],true)+
+    finalsHtml+
+    col('col-e3','컨퍼런스 파이널',G.EAST[3],true)+
+    col('col-e2','세미파이널',G.EAST[2])+
+    col('col-e1','1라운드',G.EAST[1]);
 
-  body.innerHTML = html;
-  updateSubmitBar();
+  arena.innerHTML=`<svg id="blines"></svg>${html}`;
+
+  // 공지 업데이트
+  const lockable=games.filter(g=>g.team1&&g.team2&&!g.is_locked&&!g.winner);
+  const notice=document.getElementById('bnotice');
+  if(!lockable.length)notice.textContent='🔒 예측이 마감되었습니다. 결과를 기다려주세요.';
+  else notice.innerHTML='⚠️ <b>1라운드부터 파이널까지</b> 전체를 예측하세요. 팀을 고르면 다음 라운드에 자동 반영됩니다.';
+
+  updateSaveBar();
+  requestAnimationFrame(()=>requestAnimationFrame(drawLines));
 }
 
-// 내 픽으로 다음 라운드 팀 예상 계산
-function calcProjectedTeams() {
-  // key: next_game_id + '_' + next_slot → 예상 팀명
-  const proj = {};
-  games.forEach(g => {
-    if (!g.next_game_id) return;
-    const myPick = localPicks[g.id]?.picked_winner;
-    const actualWinner = g.winner;
-    const team = actualWinner || myPick || null;
-    if (team) {
-      proj[`${g.next_game_id}_${g.next_slot}`] = {
-        team,
-        logo: team === g.team1 ? getLogo(g.team1, g.team1_logo) : getLogo(g.team2, g.team2_logo)
-      };
-    }
-  });
-  return proj;
-}
+// 경기 카드 HTML 생성
+function mcCard(game,proj,showPR){
+  const pick=localPicks[game.id];
+  const saved=savedPicks[game.id];
+  const locked=game.is_locked||!!game.winner;
 
-function buildGameCard(game, proj) {
-  const myPick = localPicks[game.id];
-  const saved  = savedPicks[game.id];
-  const locked = game.is_locked || !!game.winner;
+  // 팀 정보 (DB or 이전 라운드 픽에서 projected)
+  const t1=teamInfo(game,'team1',proj);
+  const t2=teamInfo(game,'team2',proj);
 
-  // 팀 표시: 직접 등록 or 이전 라운드 내 픽에서 projected
-  const t1info = game.team1
-    ? { name: game.team1, logo: getLogo(game.team1, game.team1_logo) }
-    : proj[`${game.id}_1`] || null;
-  const t2info = game.team2
-    ? { name: game.team2, logo: getLogo(game.team2, game.team2_logo) }
-    : proj[`${game.id}_2`] || null;
+  let cls='mc'+(pick?.picked_winner?' hp':'')+(locked?' locked':'');
+  let html=`<div class="${cls}" id="mc-${game.id}">`;
+  html+=`<div class="mc-hdr"><span>${game.conference||''}${game.round===4?'':' R'+game.round}</span>`;
+  if(game.winner)html+=`<span class="bgd">결과발표</span>`;
+  else if(game.is_locked)html+=`<span class="bgl">🔒</span>`;
+  html+='</div>';
 
-  const hasBothTeams = !!(t1info && t2info);
+  if(!t1&&!t2){
+    html+=`<div style="padding:12px 10px;color:var(--mu);font-size:0.72rem;text-align:center">이전 라운드를<br>먼저 예측하세요</div>`;
+  }else{
+    [t1,t2].forEach((ti,idx)=>{
+      if(!ti){html+=`<button class="tb tbd-t" disabled><div class="lph">?</div><span class="tn tbd-n">대기중</span></button>`;return;}
+      const isPicked=pick?.picked_winner===ti.name;
+      const isWinner=game.winner===ti.name;
+      const isLoser=game.winner&&game.winner!==ti.name;
+      const isProjected=!game[idx===0?'team1':'team2']&&ti.projected;
 
-  let cardClass = 'game-card';
-  if (myPick?.picked_winner) cardClass += ' has-pick';
-  if (locked) cardClass += ' locked';
+      let cls2='tb';
+      if(isPicked)cls2+=' picked';
+      if(isWinner)cls2+=' winner-r';
+      if(isLoser)cls2+=' loser-r';
+      if(isProjected)cls2+=' tbd-t';
 
-  // 픽률 표시 여부: 설정 + (마감 후 자동공개 옵션)
-  const showPR = showPickrate || (settings.pickrate_after_lock === 'true' && locked);
-  const pr = pickRates[game.id] || {};
-  const pr1 = t1info ? (pr[t1info.name]?.pct || 0) : 0;
-  const pr2 = t2info ? (pr[t2info.name]?.pct || 0) : 0;
-  const totalPicks = t1info ? ((pr[t1info.name]?.count||0) + (pr[t2info.name]?.count||0)) : 0;
+      const lgSrc=ti.logo;
+      const lgHtml=lgSrc
+        ?`<img class="lg" src="${lgSrc}" onerror="this.style.display='none'">`
+        :`<div class="lph">${ti.name.split(' ').map(w=>w[0]).slice(0,3).join('')}</div>`;
 
-  const confLabel = game.conference ? `${game.conference} ` : '';
+      let icon='';
+      if(game.winner&&saved?.picked_winner===ti.name)icon=saved.is_correct?'<span class="cok">✅</span>':'<span class="cno">❌</span>';
+      else if(isPicked)icon='<span class="star">★</span>';
 
-  let html = `<div class="${cardClass}" id="gc-${game.id}">`;
-  html += `<div class="game-meta">
-    <span>${confLabel}${game.round === 4 ? 'Finals' : `G${game.game_order}`}</span>
-    ${game.winner ? `<span class="badge-done">결과발표</span>` : locked ? `<span class="badge-lock">🔒 마감</span>` : ''}
-  </div>`;
-
-  if (!hasBothTeams) {
-    html += `<div style="padding:14px 13px;color:var(--muted);font-size:0.82rem">⏳ 진출팀 결정 대기중<br><span style="font-size:0.75rem;opacity:0.7">이전 라운드를 먼저 예측하면 자동 표시됩니다</span></div>`;
-  } else {
-    [t1info, t2info].forEach((tinfo, idx) => {
-      const isT1 = idx === 0;
-      const isSelected = myPick?.picked_winner === tinfo.name;
-      const isWinner = game.winner === tinfo.name;
-      const isLoser  = game.winner && game.winner !== tinfo.name;
-
-      let rowClass = 'team-btn';
-      if (isSelected) rowClass += ' selected';
-      if (isWinner)   rowClass += ' winner-team';
-      if (isLoser)    rowClass += ' loser-team';
-
-      const logoHtml = tinfo.logo
-        ? `<img class="team-logo" src="${tinfo.logo}" alt="${tinfo.name}" onerror="this.style.display='none'">`
-        : `<div class="team-logo-placeholder">${tinfo.name.split(' ').map(w=>w[0]).slice(0,3).join('')}</div>`;
-
-      let iconHtml = '';
-      if (game.winner && saved?.picked_winner === tinfo.name) {
-        iconHtml = saved.is_correct ? '<span class="check-ok">✅</span>' : '<span class="check-no">❌</span>';
-      } else if (isSelected) {
-        iconHtml = '<span class="pick-star">★</span>';
-      }
-
-      html += `<button class="${rowClass}" onclick="pickTeam(${game.id},'${tinfo.name.replace(/'/g,"\\'")}',${!game.team1 && !isT1})"
-        ${locked || !hasBothTeams ? 'disabled' : ''}>
-        ${logoHtml}
-        <span class="team-name">${tinfo.name}</span>
-        ${iconHtml}
+      html+=`<button class="${cls2}"
+        onclick="pickTeam(${game.id},'${ti.name.replace(/'/g,"\\'")}')"
+        ${locked||isProjected?'disabled':''}>
+        ${lgHtml}<span class="tn${isProjected?' tbd-n':''}">${ti.name}</span>${icon}
       </button>`;
     });
+  }
 
-    // 픽률 바
-    if (showPR && totalPicks > 0) {
-      const w1 = Math.max(pr1, 4); // 최소 너비 보장
-      html += `<div class="pickrate-row">
-        <div class="pr-left" style="width:${w1}%">${pr1}%</div>
-        <div class="pr-total">${totalPicks}명</div>
-        <div class="pr-right" style="width:${pr2}%">${pr2}%</div>
+  // 픽률 바
+  if(showPR&&t1&&t2){
+    const pr=pickRates[game.id]||{};
+    const p1=pr[t1.name]?.pct||0;const p2=pr[t2.name]?.pct||0;
+    const total=(pr[t1.name]?.count||0)+(pr[t2.name]?.count||0);
+    if(total>0){
+      html+=`<div style="display:flex;height:18px;border-top:1px solid var(--bd);font-size:0.65rem;font-weight:700;overflow:hidden">
+        <div style="background:rgba(200,16,46,.35);width:${Math.max(p1,4)}%;display:flex;align-items:center;padding:0 4px;color:#fff">${p1}%</div>
+        <div style="background:rgba(100,100,100,.2);color:var(--mu);display:flex;align-items:center;padding:0 3px;white-space:nowrap;font-size:0.6rem">${total}명</div>
+        <div style="background:rgba(29,66,138,.45);flex:1;display:flex;align-items:center;justify-content:flex-end;padding:0 4px;color:#fff">${p2}%</div>
       </div>`;
     }
   }
 
   // 파이널 스코어
-  if (game.round === 4 && hasBothTeams) {
-    const selScore = myPick?.finals_score;
-    html += `<div class="finals-score-section">
-      <div class="label">🏆 시리즈 스코어 예측 (승자 기준)</div>
-      <div class="score-chips">
-        ${SCORES.map(s=>`<button class="score-chip ${selScore===s?'on':''}"
-          onclick="pickScore(${game.id},'${s}')"
-          ${locked?'disabled':''}>${s}</button>`).join('')}
-      </div>
-      ${game.finals_score ? `<div style="font-size:0.75rem;color:var(--gold);margin-top:7px">실제 결과: ${game.finals_score}</div>` : ''}
+  if(game.round===4&&t1&&t2){
+    const sel=pick?.finals_score;
+    html+=`<div class="fscore"><div class="fl">시리즈 스코어 예측</div>
+      <div class="schips">${SCORES.map(s=>`<button class="sc${sel===s?' on':''}"
+        onclick="pickScore(${game.id},'${s}')" ${locked?'disabled':''}>${s}</button>`).join('')}</div>
+      ${game.finals_score?`<div class="sc-result">실제: ${game.finals_score}</div>`:''}
     </div>`;
   }
 
-  html += '</div>';
+  html+='</div>';
   return html;
 }
 
-function pickTeam(gameId, team) {
-  if (!localPicks[gameId]) localPicks[gameId] = {};
-  localPicks[gameId].picked_winner = team;
-  // 다음 라운드에서 이 팀이 보여야 하므로 전체 재렌더
-  renderBracket();
+// 팀 정보 추출 (DB or projected)
+function teamInfo(game,slot,proj){
+  const dbTeam=game[slot];
+  const dbLogo=game[slot+'_logo'];
+  if(dbTeam&&dbTeam!=='TBD')return{name:dbTeam,logo:logo(dbTeam,dbLogo)};
+  // projected
+  const slotNum=slot==='team1'?1:2;
+  const p=proj[`${game.id}_${slotNum}`];
+  if(p)return{name:p.name,logo:p.logo,projected:true};
+  return null;
 }
 
-function pickScore(gameId, score) {
-  if (!localPicks[gameId]) localPicks[gameId] = {};
-  localPicks[gameId].finals_score = score;
-  const game = games.find(g=>g.id===gameId);
-  document.getElementById(`gc-${gameId}`).outerHTML = buildGameCard(game, calcProjectedTeams());
-  updateSubmitBar();
+// 픽에서 다음 라운드 팀 예측 계산
+function calcProj(){
+  const proj={};
+  games.forEach(g=>{
+    if(!g.next_game_id)return;
+    const winner=g.winner||(localPicks[g.id]?.picked_winner)||null;
+    if(!winner)return;
+    const lg=winner===g.team1?logo(g.team1,g.team1_logo):logo(g.team2,g.team2_logo);
+    proj[`${g.next_game_id}_${g.next_slot}`]={name:winner,logo:lg};
+  });
+  return proj;
 }
 
-function updateSubmitBar() {
-  const bar = document.getElementById('submit-bar');
-  const available = games.filter(g=>g.team1&&g.team2&&!g.is_locked&&!g.winner);
-  if (!available.length) { bar.style.display='none'; return; }
-  bar.style.display = '';
-  const done = available.filter(g=>localPicks[g.id]?.picked_winner).length;
-  document.getElementById('pick-done').textContent  = done;
-  document.getElementById('pick-total').textContent = available.length;
+function pickTeam(gameId,team){
+  if(!localPicks[gameId])localPicks[gameId]={};
+  localPicks[gameId].picked_winner=team;
+  renderBracket(); // 전체 재렌더 (다음 라운드 propagation 반영)
 }
 
-async function submitPicks() {
-  const btn = document.getElementById('submit-btn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+function pickScore(gameId,score){
+  if(!localPicks[gameId])localPicks[gameId]={};
+  localPicks[gameId].finals_score=score;
+  // 파이널 카드만 갱신
+  const game=games.find(g=>g.id===gameId);
+  const proj=calcProj();
+  const showPR=settings.show_pickrate==='true'||((settings.pickrate_after_lock==='true')&&game.is_locked);
+  const card=document.getElementById(`mc-${gameId}`);
+  if(card){const tmp=document.createElement('div');tmp.innerHTML=mcCard(game,proj,showPR);card.replaceWith(tmp.firstChild);}
+  updateSaveBar();
+}
 
-  const rows = Object.entries(localPicks)
+function updateSaveBar(){
+  const bar=document.getElementById('save-bar');
+  const avail=games.filter(g=>g.team1&&g.team2&&g.team1!=='TBD'&&g.team2!=='TBD'&&!g.is_locked&&!g.winner);
+  if(!avail.length){bar.style.display='none';return;}
+  bar.style.display='flex';
+  const done=avail.filter(g=>localPicks[g.id]?.picked_winner).length;
+  document.getElementById('p-done').textContent=done;
+  document.getElementById('p-total').textContent=avail.length;
+}
+
+async function submitPicks(){
+  const btn=document.getElementById('save-btn');
+  btn.disabled=true;btn.textContent='저장 중...';
+  const rows=Object.entries(localPicks)
     .filter(([,p])=>p.picked_winner)
-    .map(([gid,p])=>({
-      user_id: CU.id, game_id: parseInt(gid),
-      picked_winner: p.picked_winner, finals_score: p.finals_score||null
-    }));
-
-  const {error} = await sb.from('picks').upsert(rows, {onConflict:'user_id,game_id'});
-  if (error) { alert('저장 실패: '+error.message); }
-  else {
-    await loadAll();
-    renderBracket();
-    alert(`✅ ${rows.length}개 예측 저장 완료!`);
-  }
-  btn.disabled = false; btn.textContent = '💾 저장';
+    .map(([gid,p])=>({user_id:CU.id,game_id:parseInt(gid),picked_winner:p.picked_winner,finals_score:p.finals_score||null,updated_at:new Date().toISOString()}));
+  const{error}=await sb.from('picks').upsert(rows,{onConflict:'user_id,game_id'});
+  if(error)alert('저장 실패: '+error.message);
+  else{await loadAll();renderBracket();alert(`✅ ${rows.length}개 예측 저장!`);}
+  btn.disabled=false;btn.textContent='💾 저장';
 }
 
-// ── 내 예측 ──────────────────────────────────
-async function renderMyPicks() {
-  const body = document.getElementById('mypicks-body');
+// ── SVG 브래킷 연결선 ──────────────────────────────
+function drawLines(){
+  const arena=document.getElementById('bracket-arena');
+  const svg=document.getElementById('blines');
+  if(!arena||!svg)return;
+  svg.innerHTML='';
+  const ar=arena.getBoundingClientRect();
+  svg.setAttribute('viewBox',`0 0 ${ar.width} ${ar.height}`);
+
+  games.forEach(game=>{
+    if(!game.next_game_id)return;
+    const from=document.getElementById(`mc-${game.id}`);
+    const to=document.getElementById(`mc-${game.next_game_id}`);
+    if(!from||!to)return;
+
+    const fr=from.getBoundingClientRect();
+    const tr=to.getBoundingClientRect();
+    const x1=fr.right-ar.left;const y1=fr.top+fr.height/2-ar.top;
+    const x2=tr.left-ar.left;const y2=tr.top+tr.height/2-ar.top;
+
+    // 이스트 사이드인지 판별 (x2 < x1이면 오른쪽→왼쪽 방향)
+    const isEast=x2<x1;
+    const mx=isEast?(x1+x2)/2:(x1+x2)/2;
+
+    const d=`M${x1},${y1} H${mx} V${y2} H${x2}`;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','path');
+    line.setAttribute('d',d);
+    line.setAttribute('stroke','#2a3550');
+    line.setAttribute('stroke-width','1.5');
+    line.setAttribute('fill','none');
+    line.setAttribute('stroke-linecap','round');
+    svg.appendChild(line);
+  });
+
+  // 파이널 연결선 (컨퍼런스파이널 → 파이널)
+  // (next_game_id로 이미 처리됨)
+}
+
+// ── 내 예측 ──────────────────────────────────────
+async function renderMyPicks(){
+  const body=document.getElementById('mp-body');
   await loadAll();
-  if (!Object.keys(savedPicks).length) {
-    body.innerHTML = '<div class="empty">아직 제출한 예측이 없습니다.<br>브래킷 탭에서 예측하고 저장하세요.</div>';
-    return;
-  }
-  const WEIGHTS = {1:1,2:2,3:4,4:8};
-  let total = 0, html = '';
-  const rounds = [...new Set(games.map(g=>g.round))].sort((a,b)=>a-b);
-  rounds.forEach(r => {
-    const rg = games.filter(g=>g.round===r && savedPicks[g.id]);
-    if (!rg.length) return;
-    html += `<div class="round-header"><span>${ROUND_ICON[r]}</span>${ROUND_LABEL[r]}</div>`;
-    rg.forEach(game => {
-      const pk = savedPicks[game.id];
-      let badge = '<span class="result-badge rb-wait">⏳ 대기중</span>';
-      if (game.winner) {
-        if (pk.is_correct) {
-          let pt = WEIGHTS[game.round];
-          if (game.round===4 && pk.finals_score===game.finals_score) pt+=4;
+  if(!Object.keys(savedPicks).length){body.innerHTML='<div class="empty">아직 제출한 예측이 없습니다.</div>';return;}
+  const W={1:1,2:2,3:4,4:8};
+  let total=0,html='';
+  [1,2,3,4].forEach(r=>{
+    const rg=games.filter(g=>g.round===r&&savedPicks[g.id]);
+    if(!rg.length)return;
+    html+=`<div class="mp-rhdr">${RNAME[r]}</div>`;
+    rg.forEach(game=>{
+      const pk=savedPicks[game.id];
+      let badge=`<span class="rb rb-wt">⏳</span>`;
+      if(game.winner){
+        if(pk.is_correct){
+          let pt=W[game.round];
+          if(game.round===4&&pk.finals_score===game.finals_score)pt+=4;
           total+=pt;
-          badge = `<span class="result-badge rb-ok">✅ +${pt}점</span>`;
-        } else badge = '<span class="result-badge rb-no">❌</span>';
+          badge=`<span class="rb rb-ok">+${pt}점</span>`;
+        }else badge=`<span class="rb rb-no">❌</span>`;
       }
-      const scoreNote = pk.finals_score ? ` (${pk.finals_score})` : '';
-      html += `<div class="my-pick-card">
+      html+=`<div class="mp-card">
         <div>
-          <div class="my-pick-matchup">${game.team1||'?'} vs ${game.team2||'?'}</div>
-          <div class="my-pick-team">${pk.picked_winner}${scoreNote}</div>
-          ${game.winner ? `<div class="my-pick-score-bonus" style="color:var(--muted);font-size:0.72rem">실제: ${game.winner}${game.finals_score?' '+game.finals_score:''}</div>` : ''}
-        </div>
-        ${badge}
-      </div>`;
+          <div class="mp-match">${game.team1||'?'} vs ${game.team2||'?'}</div>
+          <div class="mp-team">${pk.picked_winner}${pk.finals_score?' ('+pk.finals_score+')':''}</div>
+          ${game.winner?`<div class="mp-sub">실제: ${game.winner}${game.finals_score?' '+game.finals_score:''}</div>`:''}
+        </div>${badge}</div>`;
     });
   });
-  html += `<div class="my-total">현재 누적 점수: ${total}점</div>`;
-  body.innerHTML = html;
+  html+=`<div class="my-total">누적 점수: ${total}점</div>`;
+  body.innerHTML=html;
 }
 
-// ── 리더보드 ─────────────────────────────────
-async function loadLeaderboard() {
-  const body = document.getElementById('lb-body');
-  body.innerHTML = '<div class="spin-wrap"><div class="spinner"></div></div>';
-  const {data,error} = await sb.from('leaderboard').select('*');
-  if (error||!data?.length) { body.innerHTML='<div class="empty">아직 순위 데이터가 없습니다.</div>'; return; }
-
-  let html = `<div class="lb-header"><span>순위</span><span>닉네임</span><span style="text-align:right">정답</span><span style="text-align:right">점수</span></div>`;
-  data.forEach((row,i) => {
-    const isMe = row.nickname===CU.nickname;
-    const rankEmoji = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
-    html += `<div class="lb-row ${isMe?'me':''}">
-      <div class="rank-no ${i<3?`r${i+1}`:''}">${rankEmoji||i+1}</div>
-      <div>${row.nickname}${isMe?'<span class="lb-me-tag"> (나)</span>':''}</div>
-      <div class="lb-correct">${row.correct}/${row.judged}</div>
-      <div class="lb-score">${row.score}</div>
+// ── 순위표 ──────────────────────────────────────
+async function loadLb(){
+  const body=document.getElementById('lb-body');
+  body.innerHTML='<div class="spin-c"><div class="sp"></div></div>';
+  const{data}=await sb.from('leaderboard').select('*');
+  if(!data?.length){body.innerHTML='<div class="empty">아직 데이터 없음</div>';return;}
+  let html=`<div class="lb-hdr"><span>순위</span><span>닉네임</span><span style="text-align:right">정답</span><span style="text-align:right">점수</span></div>`;
+  data.forEach((row,i)=>{
+    const isMe=row.nickname===CU.nickname;
+    const em=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    html+=`<div class="lb-row${isMe?' me':''}">
+      <div class="rno ${i<3?`r${i+1}c`:''}">${em||i+1}</div>
+      <div>${row.nickname}${isMe?' <span style="font-size:.68rem;color:var(--gold)">(나)</span>':''}</div>
+      <div class="cr-cell">${row.correct}/${row.judged}</div>
+      <div class="sc-cell">${row.score}</div>
     </div>`;
   });
-  body.innerHTML = html;
-  document.getElementById('lb-updated').textContent = '방금 업데이트';
+  body.innerHTML=html;
+  document.getElementById('lb-ts').textContent='방금 업데이트';
 }
 
-// ── 패널 전환 ────────────────────────────────
-function showPanel(name, btn) {
-  ['bracket','mypicks','lb'].forEach(p => {
-    const el = document.getElementById(`panel-${p}`);
-    el.classList.remove('on');
-    el.style.display = 'none';
+// ── 패널 전환 ──
+function showPanel(name,btn){
+  ['bracket','mypicks','lb'].forEach(p=>{
+    const el=document.getElementById(`panel-${p}`);
+    el.classList.remove('on');el.style.display='none';
   });
-  const target = document.getElementById(`panel-${name}`);
-  target.classList.add('on');
-  target.style.display = 'block';
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
+  const t=document.getElementById(`panel-${name}`);
+  t.classList.add('on');t.style.display='block';
+  document.querySelectorAll('.nbtn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  const bar = document.getElementById('submit-bar');
-  if (bar) bar.style.display = name==='bracket' ? '' : 'none';
-  if (name==='lb') loadLeaderboard();
-  if (name==='mypicks') renderMyPicks();
-  if (name==='bracket') updateSubmitBar();
+  if(name==='lb')loadLb();
+  if(name==='mypicks')renderMyPicks();
+  if(name==='bracket'){updateSaveBar();requestAnimationFrame(()=>requestAnimationFrame(drawLines));}
 }
 
-// ── localStorage 유틸 ────────────────────────
-function ls(op,k,v) {
-  try { if(op==='get') return JSON.parse(localStorage.getItem(k)); if(op==='set') localStorage.setItem(k,JSON.stringify(v)); if(op==='del') localStorage.removeItem(k); } catch{}
-}
+// ── localStorage ──
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
+function lsDel(k){try{localStorage.removeItem(k);}catch{}}
 
-// ── 초기화 ───────────────────────────────────
-window.onload = async () => {
-  const stored = ls('get','user');
-  if (stored) {
-    const {data} = await sb.from('users').select('*').eq('id',stored.id).single();
-    if (data) { CU = data; initMain(); return; }
-    ls('del','user');
-  }
+// 브라우저 리사이즈 시 라인 재계산
+window.addEventListener('resize',()=>{if(CU&&document.getElementById('panel-bracket').classList.contains('on'))requestAnimationFrame(drawLines);});
+
+// ── 초기화 ──
+window.onload=async()=>{
+  const stored=lsGet('user');
+  if(stored){const{data}=await sb.from('users').select('*').eq('id',stored.id).single();if(data){CU=data;initMain();return;}lsDel('user');}
 };
 </script>
 </body>
