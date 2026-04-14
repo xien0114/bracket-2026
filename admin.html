@@ -145,6 +145,23 @@ textarea{resize:vertical;min-height:52px;font-family:monospace;font-size:0.8rem}
       <div id="bulk-msg"></div>
     </div>
 
+    <!-- 라운드별 마감 제어 -->
+    <div class="card">
+      <div class="ctitle">🔒 마감 제어</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">
+        <button class="btn btn-sm btn-red" onclick="lockRound(1,true)">1라운드 마감 🔒</button>
+        <button class="btn btn-sm btn-red" onclick="lockRound(2,true)">세미파이널 마감 🔒</button>
+        <button class="btn btn-sm btn-red" onclick="lockRound(3,true)">컨퍼런스파이널 마감 🔒</button>
+        <button class="btn btn-sm btn-red" onclick="lockRound(4,true)">파이널 마감 🔒</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        <button class="btn btn-sm btn-blue" onclick="lockRound(0,true)">전체 마감 🔒</button>
+        <button class="btn btn-sm btn-green" onclick="lockRound(0,false)">전체 열기 🔓</button>
+        <button class="btn btn-sm btn-ghost" onclick="lockRound(1,false)">1라운드 열기</button>
+        <button class="btn btn-sm btn-ghost" onclick="lockRound(2,false)">세미파이널 열기</button>
+      </div>
+    </div>
+
     <!-- 경기 목록 + 인라인 수정 -->
     <div class="card">
       <div class="ctitle">
@@ -280,7 +297,7 @@ function renderGamesTbl(){
   const c=document.getElementById('games-tbl');
   if(!games.length){c.innerHTML='<p style="color:var(--mu);font-size:0.82rem;padding:8px 0">등록된 경기 없음</p>';return;}
   let h=`<table class="tbl"><thead><tr>
-    <th>ID</th><th>라운드</th><th>컨퍼런스</th><th>팀1</th><th>팀2</th><th>상태</th><th>잠금</th><th>수정/삭제</th>
+    <th>ID</th><th>라운드</th><th>컨퍼런스</th><th>팀1</th><th>팀2</th><th>상태</th><th>수정/삭제</th>
   </tr></thead><tbody>`;
   games.forEach(g=>{
     const st=g.winner?`<span class="badge b-done">✅${g.winner}</span>`:g.is_locked?`<span class="badge b-lock">🔒</span>`:`<span class="badge b-open">예측중</span>`;
@@ -290,10 +307,9 @@ function renderGamesTbl(){
       <td id="t1-${g.id}">${g.team1||'<span style="color:var(--mu)">TBD</span>'}</td>
       <td id="t2-${g.id}">${g.team2||'<span style="color:var(--mu)">TBD</span>'}</td>
       <td>${st}</td>
-      <td><button class="btn btn-sm ${g.is_locked?'btn-green':'btn-red'}" onclick="toggleLock(${g.id},${g.is_locked})">${g.is_locked?'🔓열기':'🔒마감'}</button></td>
       <td style="display:flex;gap:4px">
-        <button class="btn btn-sm btn-ghost" onclick="editRow(${g.id})">✏️</button>
-        <button class="btn btn-sm btn-ghost" onclick="delGame(${g.id})">🗑</button>
+        <button class="btn btn-sm btn-ghost" onclick="editRow(${g.id})" title="팀명 수정">✏️</button>
+        <button class="btn btn-sm btn-ghost" onclick="delGame(${g.id})" title="삭제">🗑</button>
       </td>
     </tr>`;
   });
@@ -370,6 +386,28 @@ async function bulkR1(){
 }
 
 async function toggleLock(id,cur){await sb.from('games').update({is_locked:!cur}).eq('id',id);loadGames();}
+
+// 라운드별/전체 마감
+async function lockRound(round,lock){
+  const label=round===0?'전체':`${RN[round]}`;
+  if(!confirm(`${label}를 ${lock?'마감':'열기'} 처리하시겠습니까?`))return;
+  let query=sb.from('games').update({is_locked:lock});
+  if(round>0)query=query.eq('round',round);
+  const{error}=await query;
+  if(error)return alert('오류: '+error.message);
+  await loadGames();
+  if(document.getElementById('tab-results').style.display!=='none')renderResults();
+}
+
+// 사용자 픽 초기화 (관리자용)
+async function resetUserPicks(userId, nickname){
+  if(!confirm(`[${nickname}] 의 예측을 초기화하시겠습니까?
+이후 해당 사용자가 재제출 가능합니다.`))return;
+  const{error}=await sb.from('picks').delete().eq('user_id',userId);
+  if(error)return alert('오류: '+error.message);
+  alert(`✅ ${nickname} 예측 초기화 완료`);
+  loadUsers();
+}
 async function delGame(id){if(!confirm('삭제 시 관련 예측도 삭제됩니다.'))return;await sb.from('games').delete().eq('id',id);loadGames();}
 
 // ── 결과 입력 ──
@@ -465,8 +503,8 @@ async function loadUsers(){
   const body=document.getElementById('users-body');
   document.getElementById('u-title').textContent=`👥 참가자 현황 (총 ${us?.length||0}명)`;
   if(!us?.length){body.innerHTML='<p style="color:var(--mu);font-size:0.82rem">없음</p>';return;}
-  let h='<table class="tbl"><thead><tr><th>닉네임</th><th>예측수</th><th>IP</th><th>가입일</th></tr></thead><tbody>';
-  us.forEach(u=>{h+=`<tr><td>${u.nickname}</td><td>${cnt[u.id]||0}</td><td style="color:var(--mu);font-size:0.72rem">${u.ip_address||'-'}</td><td style="color:var(--mu)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td></tr>`;});
+  let h='<table class="tbl"><thead><tr><th>닉네임</th><th>예측수</th><th>IP</th><th>가입일</th><th>초기화</th></tr></thead><tbody>';
+  us.forEach(u=>{h+=`<tr><td>${u.nickname}</td><td>${cnt[u.id]||0}</td><td style="color:var(--mu);font-size:0.72rem">${u.ip_address||'-'}</td><td style="color:var(--mu)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td><td><button class="btn btn-sm btn-ghost" onclick="resetUserPicks('${u.id}','${u.nickname.replace(/'/g,"\'")}')">픽 초기화</button></td></tr>`;});
   h+='</tbody></table>';body.innerHTML=h;
 }
 
