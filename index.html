@@ -136,6 +136,8 @@ header h1{font-size:0.95rem;font-weight:700}
 .tb.winner-r{background:rgba(34,197,94,.08)}
 .tb.loser-r{opacity:.3}
 .tb.tbd-t{cursor:default}
+.tb.inferred .tn{color:var(--mu);font-style:italic}
+.tb.inferred{border-left:2px solid rgba(255,199,44,0.25)}
 .tb:disabled{cursor:default}
 .tb .lg{width:26px;height:26px;border-radius:50%;object-fit:contain;flex-shrink:0;
   background:rgba(255,255,255,.04)}
@@ -485,13 +487,11 @@ function mcCard(game,proj,showPR){
       const isPicked=pick?.picked_winner===ti.name;
       const isWinner=game.winner===ti.name;
       const isLoser=game.winner&&game.winner!==ti.name;
-      const isProjected=!game[idx===0?'team1':'team2']&&ti.projected;
-
       let cls2='tb';
       if(isPicked)cls2+=' picked';
       if(isWinner)cls2+=' winner-r';
       if(isLoser)cls2+=' loser-r';
-      if(isProjected)cls2+=' tbd-t';
+      if(!ti.fixed&&!game.winner)cls2+=' inferred'; // 예측값은 클릭 가능하나 이탤릭 표시
 
       const lgSrc=ti.logo;
       const lgHtml=lgSrc
@@ -504,8 +504,8 @@ function mcCard(game,proj,showPR){
 
       html+=`<button class="${cls2}"
         onclick="pickTeam(${game.id},'${ti.name.replace(/'/g,"\\'")}')"
-        ${locked||isProjected?'disabled':''}>
-        ${lgHtml}<span class="tn${isProjected?' tbd-n':''}">${ti.name}</span>${icon}
+        ${locked?'disabled':''}>
+        ${lgHtml}<span class="tn${!ti.fixed&&!game.winner?' tbd-n':''}">${ti.name}</span>${icon}
       </button>`;
     });
   }
@@ -538,28 +538,39 @@ function mcCard(game,proj,showPR){
   return html;
 }
 
-// 팀 정보 추출 (DB or projected)
+// 팀 정보 추출 (DB 확정 or 이전 픽에서 예측)
 function teamInfo(game,slot,proj){
   const dbTeam=game[slot];
   const dbLogo=game[slot+'_logo'];
-  if(dbTeam&&dbTeam!=='TBD')return{name:dbTeam,logo:logo(dbTeam,dbLogo)};
-  // projected
+  if(dbTeam&&dbTeam!=='TBD')return{name:dbTeam,logo:logo(dbTeam,dbLogo),fixed:true};
   const slotNum=slot==='team1'?1:2;
   const p=proj[`${game.id}_${slotNum}`];
-  if(p)return{name:p.name,logo:p.logo,projected:true};
+  if(p)return{name:p.name,logo:p.logo,fixed:false}; // 예측값 - 클릭 가능
   return null;
 }
 
-// 픽에서 다음 라운드 팀 예측 계산
+// 픽에서 다음 라운드 팀 예측 계산 (NBA 브래킷 룰 하드코딩)
+// R1: game_order 1=1v8, 2=4v5, 3=2v7, 4=3v6
+// 1+2 승자 → R2 order=1 / 3+4 승자 → R2 order=2
 function calcProj(){
   const proj={};
-  games.forEach(g=>{
-    if(!g.next_game_id)return;
-    const winner=g.winner||(localPicks[g.id]?.picked_winner)||null;
-    if(!winner)return;
-    const lg=winner===g.team1?logo(g.team1,g.team1_logo):logo(g.team2,g.team2_logo);
-    proj[`${g.next_game_id}_${g.next_slot}`]={name:winner,logo:lg};
+  function win(conf,round,order){
+    const g=games.find(x=>x.conference===conf&&x.round===round&&x.game_order===order);
+    if(!g)return null;
+    const w=g.winner||(localPicks[g.id]?.picked_winner);
+    if(!w)return null;
+    return{name:w,logo:w===g.team1?logo(g.team1,g.team1_logo):logo(g.team2,g.team2_logo)};
+  }
+  ['WEST','EAST'].forEach(conf=>{
+    const r2a=games.find(x=>x.conference===conf&&x.round===2&&x.game_order===1);
+    const r2b=games.find(x=>x.conference===conf&&x.round===2&&x.game_order===2);
+    const r3 =games.find(x=>x.conference===conf&&x.round===3);
+    if(r2a){const a=win(conf,1,1);if(a)proj[`${r2a.id}_1`]=a; const b=win(conf,1,2);if(b)proj[`${r2a.id}_2`]=b;}
+    if(r2b){const c=win(conf,1,3);if(c)proj[`${r2b.id}_1`]=c; const d=win(conf,1,4);if(d)proj[`${r2b.id}_2`]=d;}
+    if(r3) {const e=win(conf,2,1);if(e)proj[`${r3.id}_1`] =e; const f=win(conf,2,2);if(f)proj[`${r3.id}_2`] =f;}
   });
+  const fin=games.find(x=>x.round===4);
+  if(fin){const w=win('WEST',3,1);if(w)proj[`${fin.id}_1`]=w; const e=win('EAST',3,1);if(e)proj[`${fin.id}_2`]=e;}
   return proj;
 }
 
@@ -583,7 +594,14 @@ function pickScore(gameId,score){
 
 function updateSaveBar(){
   const bar=document.getElementById('save-bar');
-  const avail=games.filter(g=>g.team1&&g.team2&&g.team1!=='TBD'&&g.team2!=='TBD'&&!g.is_locked&&!g.winner);
+  const proj=calcProj();
+  // 팀이 확정되었거나 이전 픽으로 예측 가능한 경기 모두 포함
+  const avail=games.filter(g=>{
+    if(g.is_locked||g.winner)return false;
+    const t1ok=(g.team1&&g.team1!=='TBD')||!!proj[`${g.id}_1`];
+    const t2ok=(g.team2&&g.team2!=='TBD')||!!proj[`${g.id}_2`];
+    return t1ok&&t2ok;
+  });
   if(!avail.length){bar.style.display='none';return;}
   bar.style.display='flex';
   const done=avail.filter(g=>localPicks[g.id]?.picked_winner).length;
@@ -603,7 +621,7 @@ async function submitPicks(){
   btn.disabled=false;btn.textContent='💾 저장';
 }
 
-// ── SVG 브래킷 연결선 ──────────────────────────────
+// ── SVG 브래킷 연결선 (NBA 브래킷 룰 하드코딩) ──
 function drawLines(){
   const arena=document.getElementById('bracket-arena');
   const svg=document.getElementById('blines');
@@ -612,33 +630,47 @@ function drawLines(){
   const ar=arena.getBoundingClientRect();
   svg.setAttribute('viewBox',`0 0 ${ar.width} ${ar.height}`);
 
-  games.forEach(game=>{
-    if(!game.next_game_id)return;
-    const from=document.getElementById(`mc-${game.id}`);
-    const to=document.getElementById(`mc-${game.next_game_id}`);
-    if(!from||!to)return;
-
-    const fr=from.getBoundingClientRect();
-    const tr=to.getBoundingClientRect();
-    const x1=fr.right-ar.left;const y1=fr.top+fr.height/2-ar.top;
-    const x2=tr.left-ar.left;const y2=tr.top+tr.height/2-ar.top;
-
-    // 이스트 사이드인지 판별 (x2 < x1이면 오른쪽→왼쪽 방향)
-    const isEast=x2<x1;
-    const mx=isEast?(x1+x2)/2:(x1+x2)/2;
-
-    const d=`M${x1},${y1} H${mx} V${y2} H${x2}`;
-    const line=document.createElementNS('http://www.w3.org/2000/svg','path');
-    line.setAttribute('d',d);
-    line.setAttribute('stroke','#2a3550');
-    line.setAttribute('stroke-width','1.5');
-    line.setAttribute('fill','none');
-    line.setAttribute('stroke-linecap','round');
-    svg.appendChild(line);
+  // 연결쌍 계산: [fromId, toId, isEastSide]
+  const pairs=[];
+  ['WEST','EAST'].forEach(conf=>{
+    const isE=conf==='EAST';
+    const r1=games.filter(x=>x.conference===conf&&x.round===1).sort((a,b)=>a.game_order-b.game_order);
+    const r2=games.filter(x=>x.conference===conf&&x.round===2).sort((a,b)=>a.game_order-b.game_order);
+    const r3=games.find(x=>x.conference===conf&&x.round===3);
+    // R1→R2
+    if(r2[0]&&r1[0])pairs.push([r1[0].id,r2[0].id,isE]);
+    if(r2[0]&&r1[1])pairs.push([r1[1].id,r2[0].id,isE]);
+    if(r2[1]&&r1[2])pairs.push([r1[2].id,r2[1].id,isE]);
+    if(r2[1]&&r1[3])pairs.push([r1[3].id,r2[1].id,isE]);
+    // R2→CF
+    if(r3&&r2[0])pairs.push([r2[0].id,r3.id,isE]);
+    if(r3&&r2[1])pairs.push([r2[1].id,r3.id,isE]);
+    // CF→Finals
+    const fin=games.find(x=>x.round===4);
+    if(fin&&r3)pairs.push([r3.id,fin.id,isE]);
   });
 
-  // 파이널 연결선 (컨퍼런스파이널 → 파이널)
-  // (next_game_id로 이미 처리됨)
+  pairs.forEach(([fromId,toId,isEast])=>{
+    const from=document.getElementById(`mc-${fromId}`);
+    const to=document.getElementById(`mc-${toId}`);
+    if(!from||!to)return;
+    const fr=from.getBoundingClientRect();
+    const tr=to.getBoundingClientRect();
+    // WEST: 카드 오른쪽 → 다음 카드 왼쪽
+    // EAST: 카드 왼쪽 → 다음 카드 오른쪽
+    const x1=isEast?fr.left-ar.left:fr.right-ar.left;
+    const y1=fr.top+fr.height/2-ar.top;
+    const x2=isEast?tr.right-ar.left:tr.left-ar.left;
+    const y2=tr.top+tr.height/2-ar.top;
+    const mx=(x1+x2)/2;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M${x1},${y1} H${mx} V${y2} H${x2}`);
+    path.setAttribute('stroke','#2a3550');
+    path.setAttribute('stroke-width','1.5');
+    path.setAttribute('fill','none');
+    path.setAttribute('stroke-linecap','round');
+    svg.appendChild(path);
+  });
 }
 
 // ── 내 예측 ──────────────────────────────────────

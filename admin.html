@@ -118,15 +118,30 @@ textarea{resize:vertical;min-height:52px;font-family:monospace;font-size:0.8rem}
   <div id="tab-games">
     <!-- 7/8시드 일괄 등록 -->
     <div class="card">
-      <div class="ctitle">⚡ 플레이인 완료 후 — 1라운드 일괄 등록</div>
-      <p style="font-size:0.78rem;color:var(--mu);margin-bottom:12px">7시드/8시드가 확정된 후 아래에 팀명을 입력하고 일괄 등록하세요. 한 번만 하면 됩니다.</p>
-      <div class="g2">
-        <div><label>이스트 7시드 팀명</label><input id="e7" placeholder="예: Philadelphia 76ers"></div>
-        <div><label>이스트 8시드 팀명</label><input id="e8" placeholder="예: Miami Heat"></div>
-        <div><label>웨스트 7시드 팀명</label><input id="w7" placeholder="예: Phoenix Suns"></div>
-        <div><label>웨스트 8시드 팀명</label><input id="w8" placeholder="예: Portland Trail Blazers"></div>
+      <div class="ctitle">⚡ 브래킷 전체 등록 (한 번만)</div>
+      <p style="font-size:0.78rem;color:var(--mu);margin-bottom:10px">
+        2026 브래킷이 자동 세팅됩니다. 플레이인 결과(7/8시드)만 입력하세요.
+        비워두면 "이스트/웨스트 7·8시드"로 임시 등록됩니다.
+      </p>
+      <div style="background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:0.75rem;color:var(--mu);margin-bottom:12px;line-height:1.8">
+        <b style="color:var(--tx)">동부 1라운드 확정 대진</b><br>
+        ① Detroit Pistons(1) vs <b style="color:var(--gold)">이스트 8시드</b> &nbsp;
+        ② Cleveland Cavaliers(4) vs Toronto Raptors(5)<br>
+        ③ Boston Celtics(2) vs <b style="color:var(--gold)">이스트 7시드</b> &nbsp;
+        ④ New York Knicks(3) vs Atlanta Hawks(6)<br><br>
+        <b style="color:var(--tx)">서부 1라운드 확정 대진</b><br>
+        ① OKC Thunder(1) vs <b style="color:var(--gold)">웨스트 8시드</b> &nbsp;
+        ② LA Lakers(4) vs Houston Rockets(5)<br>
+        ③ San Antonio Spurs(2) vs <b style="color:var(--gold)">웨스트 7시드</b> &nbsp;
+        ④ Denver Nuggets(3) vs Minnesota Timberwolves(6)
       </div>
-      <button class="btn btn-gold btn-full" onclick="bulkR1()">🏀 1라운드 8경기 일괄 등록</button>
+      <div class="g2">
+        <div><label>🏀 이스트 7시드 (플레이인 결과)</label><input id="e7" placeholder="예: Philadelphia 76ers"></div>
+        <div><label>🏀 이스트 8시드 (플레이인 결과)</label><input id="e8" placeholder="예: Orlando Magic"></div>
+        <div><label>🏀 웨스트 7시드 (플레이인 결과)</label><input id="w7" placeholder="예: Phoenix Suns"></div>
+        <div><label>🏀 웨스트 8시드 (플레이인 결과)</label><input id="w8" placeholder="예: Portland Trail Blazers"></div>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="bulkR1()">🏀 전체 브래킷 등록 (1라운드~파이널 15경기)</button>
       <div id="bulk-msg"></div>
     </div>
 
@@ -139,16 +154,7 @@ textarea{resize:vertical;min-height:52px;font-family:monospace;font-size:0.8rem}
       <div id="games-tbl"></div>
     </div>
 
-    <!-- next_game_id 연결 안내 -->
-    <div class="card" style="border-color:rgba(255,199,44,.2)">
-      <div class="ctitle" style="color:var(--gold)">🔗 브래킷 연결 설정 (next_game_id)</div>
-      <p style="font-size:0.78rem;color:var(--mu);margin-bottom:10px">
-        1라운드 등록 후, 2라운드 경기도 등록한 뒤 아래 SQL을 Supabase SQL Editor에서 실행해야
-        "내 픽 → 다음 라운드 자동 표시" 기능이 작동합니다.
-      </p>
-      <div id="link-sql-preview" style="background:var(--bg);border:1px solid var(--bd);border-radius:7px;padding:10px;font-family:monospace;font-size:0.72rem;color:var(--mu);white-space:pre-wrap;max-height:180px;overflow-y:auto">경기 등록 후 여기에 SQL 예시가 자동 생성됩니다...</div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="genLinkSQL()">SQL 생성</button>
-    </div>
+
   </div>
 
   <!-- ── 결과 입력 ── -->
@@ -316,64 +322,51 @@ async function saveRow(id){
 }
 
 async function bulkR1(){
-  const e7=document.getElementById('e7').value.trim();
-  const e8=document.getElementById('e8').value.trim();
-  const w7=document.getElementById('w7').value.trim();
-  const w8=document.getElementById('w8').value.trim();
-  if(!e7||!e8||!w7||!w8)return showMsg('bulk-msg','모두 입력하세요.',true);
+  // 2026 NBA 플레이오프 브래킷
+  // 동부: DET(1) BOS(2) NYK(3) CLE(4) TOR(5) ATL(6) + 플인 7/8시드
+  // 서부: OKC(1) SA(2) DEN(3) LAL(4) HOU(5) MIN(6) + 플인 7/8시드
+
+  const e7=document.getElementById('e7').value.trim()||'이스트 7시드';
+  const e8=document.getElementById('e8').value.trim()||'이스트 8시드';
+  const w7=document.getElementById('w7').value.trim()||'웨스트 7시드';
+  const w8=document.getElementById('w8').value.trim()||'웨스트 8시드';
+
+  // game_order는 컨퍼런스 내 순서 (1~4)
+  // 브래킷: order1(1v8) + order2(4v5) → R2 order1
+  //         order3(2v7) + order4(3v6) → R2 order2
   const rows=[
-    {round:1,conference:'EAST',game_order:1,team1:'Detroit Pistons',team2:e8},
-    {round:1,conference:'EAST',game_order:2,team1:'Boston Celtics',team2:e7},
-    {round:1,conference:'EAST',game_order:3,team1:'New York Knicks',team2:'Atlanta Hawks'},
-    {round:1,conference:'EAST',game_order:4,team1:'Cleveland Cavaliers',team2:'Toronto Raptors'},
-    {round:1,conference:'WEST',game_order:5,team1:'OKC Thunder',team2:w8},
-    {round:1,conference:'WEST',game_order:6,team1:'Houston Rockets',team2:w7},
-    {round:1,conference:'WEST',game_order:7,team1:'Minnesota Timberwolves',team2:'Denver Nuggets'},
-    {round:1,conference:'WEST',game_order:8,team1:'Los Angeles Lakers',team2:'Dallas Mavericks'},
-    // 2라운드 TBD
+    // EAST R1
+    {round:1,conference:'EAST',game_order:1,team1:'Detroit Pistons',   team2:e8},       // 1 vs 8
+    {round:1,conference:'EAST',game_order:2,team1:'Cleveland Cavaliers',team2:'Toronto Raptors'}, // 4 vs 5
+    {round:1,conference:'EAST',game_order:3,team1:'Boston Celtics',    team2:e7},       // 2 vs 7
+    {round:1,conference:'EAST',game_order:4,team1:'New York Knicks',   team2:'Atlanta Hawks'},    // 3 vs 6
+    // WEST R1
+    {round:1,conference:'WEST',game_order:1,team1:'Oklahoma City Thunder',team2:w8},   // 1 vs 8
+    {round:1,conference:'WEST',game_order:2,team1:'Los Angeles Lakers', team2:'Houston Rockets'}, // 4 vs 5
+    {round:1,conference:'WEST',game_order:3,team1:'San Antonio Spurs',  team2:w7},     // 2 vs 7
+    {round:1,conference:'WEST',game_order:4,team1:'Denver Nuggets',     team2:'Minnesota Timberwolves'}, // 3 vs 6
+    // EAST R2 (TBD)
+    {round:2,conference:'EAST',game_order:1,team1:'TBD',team2:'TBD'},
+    {round:2,conference:'EAST',game_order:2,team1:'TBD',team2:'TBD'},
+    // WEST R2 (TBD)
     {round:2,conference:'WEST',game_order:1,team1:'TBD',team2:'TBD'},
     {round:2,conference:'WEST',game_order:2,team1:'TBD',team2:'TBD'},
-    {round:2,conference:'EAST',game_order:3,team1:'TBD',team2:'TBD'},
-    {round:2,conference:'EAST',game_order:4,team1:'TBD',team2:'TBD'},
-    // 3라운드 TBD
+    // 컨퍼런스 파이널 (TBD)
+    {round:3,conference:'EAST',game_order:1,team1:'TBD',team2:'TBD'},
     {round:3,conference:'WEST',game_order:1,team1:'TBD',team2:'TBD'},
-    {round:3,conference:'EAST',game_order:2,team1:'TBD',team2:'TBD'},
-    // 파이널
+    // NBA 파이널 (TBD)
     {round:4,conference:'FINALS',game_order:1,team1:'TBD',team2:'TBD'},
   ];
+
+  // 기존 데이터가 있으면 경고
+  if(games.length>0){if(!confirm(`이미 ${games.length}개 경기가 등록되어 있습니다. 초기화 후 다시 등록하려면 reset.sql을 실행하세요.
+
+그대로 추가 등록하시겠습니까?`))return;}
+
   const{error}=await sb.from('games').insert(rows);
   if(error)return showMsg('bulk-msg','오류: '+error.message,true);
-  showMsg('bulk-msg','✅ 15경기 등록 완료! 아래 SQL 생성 버튼을 눌러 브래킷 연결을 설정하세요.',false);
+  showMsg('bulk-msg','✅ 15경기 등록 완료! (next_game_id 연결 불필요 - 자동으로 처리됩니다)',false);
   await loadGames();
-  setTimeout(genLinkSQL,500);
-}
-
-// next_game_id 연결 SQL 자동 생성
-function genLinkSQL(){
-  const r1w=games.filter(g=>g.round===1&&g.conference==='WEST').sort((a,b)=>a.game_order-b.game_order);
-  const r1e=games.filter(g=>g.round===1&&g.conference==='EAST').sort((a,b)=>a.game_order-b.game_order);
-  const r2w=games.filter(g=>g.round===2&&g.conference==='WEST').sort((a,b)=>a.game_order-b.game_order);
-  const r2e=games.filter(g=>g.round===2&&g.conference==='EAST').sort((a,b)=>a.game_order-b.game_order);
-  const r3w=games.filter(g=>g.round===3&&g.conference==='WEST')[0];
-  const r3e=games.filter(g=>g.round===3&&g.conference==='EAST')[0];
-  const final=games.filter(g=>g.round===4)[0];
-
-  if(!r1w.length||!r2w.length){document.getElementById('link-sql-preview').textContent='경기 등록 후 다시 눌러주세요.';return;}
-
-  let sql='-- Supabase SQL Editor에서 실행하세요\n\n';
-  // WEST R1 → R2
-  if(r2w[0]){sql+=`-- WEST 1라운드 → 세미파이널\nUPDATE games SET next_game_id=${r2w[0].id}, next_slot=1 WHERE id=${r1w[0]?.id}; -- ${r1w[0]?.team1} vs ${r1w[0]?.team2}\nUPDATE games SET next_game_id=${r2w[0].id}, next_slot=2 WHERE id=${r1w[3]?.id}; -- ${r1w[3]?.team1} vs ${r1w[3]?.team2}\n`;}
-  if(r2w[1]){sql+=`UPDATE games SET next_game_id=${r2w[1].id}, next_slot=1 WHERE id=${r1w[1]?.id}; -- ${r1w[1]?.team1} vs ${r1w[1]?.team2}\nUPDATE games SET next_game_id=${r2w[1].id}, next_slot=2 WHERE id=${r1w[2]?.id}; -- ${r1w[2]?.team1} vs ${r1w[2]?.team2}\n\n`;}
-  // EAST R1 → R2
-  if(r2e[0]){sql+=`-- EAST 1라운드 → 세미파이널\nUPDATE games SET next_game_id=${r2e[0].id}, next_slot=1 WHERE id=${r1e[0]?.id}; -- ${r1e[0]?.team1} vs ${r1e[0]?.team2}\nUPDATE games SET next_game_id=${r2e[0].id}, next_slot=2 WHERE id=${r1e[3]?.id}; -- ${r1e[3]?.team1} vs ${r1e[3]?.team2}\n`;}
-  if(r2e[1]){sql+=`UPDATE games SET next_game_id=${r2e[1].id}, next_slot=1 WHERE id=${r1e[1]?.id}; -- ${r1e[1]?.team1} vs ${r1e[1]?.team2}\nUPDATE games SET next_game_id=${r2e[1].id}, next_slot=2 WHERE id=${r1e[2]?.id}; -- ${r1e[2]?.team1} vs ${r1e[2]?.team2}\n\n`;}
-  // R2 → R3
-  if(r3w){sql+=`-- WEST 세미파이널 → 컨퍼런스파이널\nUPDATE games SET next_game_id=${r3w.id}, next_slot=1 WHERE id=${r2w[0]?.id};\nUPDATE games SET next_game_id=${r3w.id}, next_slot=2 WHERE id=${r2w[1]?.id};\n\n`;}
-  if(r3e){sql+=`-- EAST 세미파이널 → 컨퍼런스파이널\nUPDATE games SET next_game_id=${r3e.id}, next_slot=1 WHERE id=${r2e[0]?.id};\nUPDATE games SET next_game_id=${r3e.id}, next_slot=2 WHERE id=${r2e[1]?.id};\n\n`;}
-  // R3 → Finals
-  if(final){sql+=`-- 컨퍼런스파이널 → 파이널\nUPDATE games SET next_game_id=${final.id}, next_slot=1 WHERE id=${r3w?.id}; -- WEST CF\nUPDATE games SET next_game_id=${final.id}, next_slot=2 WHERE id=${r3e?.id}; -- EAST CF`;}
-
-  document.getElementById('link-sql-preview').textContent=sql||'데이터가 부족합니다.';
 }
 
 async function toggleLock(id,cur){await sb.from('games').update({is_locked:!cur}).eq('id',id);loadGames();}
