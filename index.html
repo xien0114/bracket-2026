@@ -457,10 +457,14 @@ async function doLogin() {
   const nick = document.getElementById('l-nick').value.trim();
   const pin  = document.getElementById('l-pin').value.trim();
   if (!nick || pin.length!==4) return setToast('닉네임과 4자리 PIN을 입력하세요.');
-  const hash = await sha256(pin);
-  const {data,error} = await sb.from('users').select('*').eq('nickname',nick).eq('pin_hash',hash).single();
-  if (error||!data) return setToast('닉네임 또는 PIN이 맞지 않습니다.');
-  CU = data; ls('set','user',data); initMain();
+  const btn = document.querySelector('#form-login .btn');
+  btn.disabled = true; btn.textContent = '확인 중...';
+  try {
+    const hash = await sha256(pin);
+    const {data,error} = await sb.from('users').select('*').eq('nickname',nick).eq('pin_hash',hash).single();
+    if (error||!data) { setToast('닉네임 또는 PIN이 맞지 않습니다.'); btn.disabled=false; btn.textContent='로그인'; return; }
+    CU = data; ls('set','user',data); initMain();
+  } catch(e) { setToast('오류: '+e.message); btn.disabled=false; btn.textContent='로그인'; }
 }
 
 async function doReg() {
@@ -470,12 +474,20 @@ async function doReg() {
   if (!nick) return setToast('닉네임을 입력하세요.');
   if (!/^\d{4}$/.test(pin)) return setToast('PIN은 숫자 4자리여야 합니다.');
   if (pin !== pin2) return setToast('PIN이 일치하지 않습니다.');
-  const hash = await sha256(pin);
-  const {data,error} = await sb.from('users').insert({nickname:nick,pin_hash:hash}).select().single();
-  if (error) { if(error.code==='23505') return setToast('이미 사용 중인 닉네임입니다.'); return setToast('오류: '+error.message); }
-  CU = data; ls('set','user',data);
-  setToast('참가 완료! 잠시 후 이동합니다.', true);
-  setTimeout(initMain, 700);
+  const btn = document.querySelector('#form-reg .btn');
+  btn.disabled = true; btn.textContent = '등록 중...';
+  try {
+    const hash = await sha256(pin);
+    const {data,error} = await sb.from('users').insert({nickname:nick,pin_hash:hash}).select().single();
+    if (error) {
+      if(error.code==='23505') setToast('이미 사용 중인 닉네임입니다.');
+      else setToast('오류: '+error.message);
+      btn.disabled=false; btn.textContent='참가 신청'; return;
+    }
+    CU = data; ls('set','user',data);
+    setToast('✅ 참가 완료! 잠시 후 이동합니다.', true);
+    setTimeout(initMain, 800);
+  } catch(e) { setToast('오류: '+e.message); btn.disabled=false; btn.textContent='참가 신청'; }
 }
 
 function logout() {
@@ -486,35 +498,38 @@ function logout() {
 // ── 메인 초기화 ──────────────────────────────
 async function initMain() {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-screen').style.display  = '';
-  document.getElementById('user-chip').style.display    = '';
+  document.getElementById('main-screen').style.display  = 'block'; // ← '' 아니라 'block'
+  document.getElementById('user-chip').style.display    = 'flex';
   document.getElementById('nick-label').textContent     = CU.nickname;
 
-  await loadSettings();
-  await loadAll();
+  try {
+    await loadSettings();
+    await loadAll();
+  } catch(e) {
+    console.error('데이터 로딩 오류:', e);
+  }
   renderBracket();
 }
 
 async function loadSettings() {
-  const {data} = await sb.from('settings').select('*');
-  if (!data) return;
+  const {data, error} = await sb.from('settings').select('*');
+  if (error || !data) return;
   data.forEach(r => settings[r.key] = r.value);
   if (settings.event_title) document.getElementById('ev-title').textContent = settings.event_title;
-  // 픽률 공개 여부
   showPickrate = settings.show_pickrate === 'true';
 }
 
 async function loadAll() {
-  const [{data:g},{data:p},{data:pr}] = await Promise.all([
+  const [gRes, pRes, prRes] = await Promise.all([
     sb.from('games').select('*').order('round').order('game_order'),
     sb.from('picks').select('*').eq('user_id', CU.id),
     sb.from('pickrate_view').select('*'),
   ]);
-  games = g || [];
+  games = gRes.data || [];
   savedPicks = {}; localPicks = {};
-  (p||[]).forEach(pk => { savedPicks[pk.game_id] = pk; localPicks[pk.game_id] = {picked_winner:pk.picked_winner, finals_score:pk.finals_score}; });
+  (pRes.data||[]).forEach(pk => { savedPicks[pk.game_id] = pk; localPicks[pk.game_id] = {picked_winner:pk.picked_winner, finals_score:pk.finals_score}; });
   pickRates = {};
-  (pr||[]).forEach(r => {
+  (prRes.data||[]).forEach(r => {
     if (!pickRates[r.game_id]) pickRates[r.game_id] = {};
     pickRates[r.game_id][r.picked_winner] = { count: r.pick_count, pct: parseFloat(r.pct) };
   });
@@ -781,14 +796,21 @@ async function loadLeaderboard() {
 
 // ── 패널 전환 ────────────────────────────────
 function showPanel(name, btn) {
-  ['bracket','mypicks','lb'].forEach(p => document.getElementById(`panel-${p}`).classList.remove('on'));
-  document.getElementById(`panel-${name}`).classList.add('on');
+  ['bracket','mypicks','lb'].forEach(p => {
+    const el = document.getElementById(`panel-${p}`);
+    el.classList.remove('on');
+    el.style.display = 'none';
+  });
+  const target = document.getElementById(`panel-${name}`);
+  target.classList.add('on');
+  target.style.display = 'block';
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  document.getElementById('submit-bar').style.display = name==='bracket' ? '' : 'none';
+  const bar = document.getElementById('submit-bar');
+  if (bar) bar.style.display = name==='bracket' ? '' : 'none';
   if (name==='lb') loadLeaderboard();
   if (name==='mypicks') renderMyPicks();
-  updateSubmitBar();
+  if (name==='bracket') updateSubmitBar();
 }
 
 // ── localStorage 유틸 ────────────────────────
