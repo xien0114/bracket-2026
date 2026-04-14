@@ -1,19 +1,26 @@
 -- =============================================
--- NBA 브래킷 이벤트 - DB 스키마 v2
--- IF NOT EXISTS 적용 → 이미 있어도 에러 없음
--- 재실행해도 안전합니다
+-- NBA 브래킷 이벤트 스키마 v3
+-- Google OAuth 기반 (pin_hash 제거)
 -- =============================================
 
-CREATE TABLE IF NOT EXISTS users (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+DROP VIEW IF EXISTS leaderboard CASCADE;
+DROP VIEW IF EXISTS pickrate_view CASCADE;
+DROP TABLE IF EXISTS picks CASCADE;
+DROP TABLE IF EXISTS games CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS settings CASCADE;
+
+-- 1. 사용자 (id = Supabase auth.uid)
+CREATE TABLE users (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   nickname TEXT UNIQUE NOT NULL,
-  pin_hash TEXT NOT NULL,
+  email TEXT,
   ip_address TEXT,
-  user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS games (
+-- 2. 경기
+CREATE TABLE games (
   id SERIAL PRIMARY KEY,
   round INTEGER NOT NULL,
   conference TEXT,
@@ -25,12 +32,11 @@ CREATE TABLE IF NOT EXISTS games (
   winner TEXT,
   finals_score TEXT,
   is_locked BOOLEAN DEFAULT FALSE,
-  next_game_id INTEGER,
-  next_slot INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS picks (
+-- 3. 예측
+CREATE TABLE picks (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
@@ -42,7 +48,8 @@ CREATE TABLE IF NOT EXISTS picks (
   UNIQUE(user_id, game_id)
 );
 
-CREATE TABLE IF NOT EXISTS settings (
+-- 4. 설정
+CREATE TABLE settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
@@ -52,8 +59,7 @@ INSERT INTO settings VALUES
   ('pickrate_after_lock','true'),
   ('scoring','{"r1":1,"r2":2,"r3":4,"r4":8,"bonus":4}'),
   ('event_title','NBA 2026 플레이오프 브래킷'),
-  ('event_open','true')
-ON CONFLICT (key) DO NOTHING;
+  ('event_open','true');
 
 -- RLS
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -61,23 +67,21 @@ ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 ALTER TABLE picks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "users_all" ON users;
-DROP POLICY IF EXISTS "games_all" ON games;
-DROP POLICY IF EXISTS "picks_all" ON picks;
-DROP POLICY IF EXISTS "settings_all" ON settings;
-
+-- 모든 인증 사용자 접근 허용 (admin 포함)
 CREATE POLICY "users_all"    ON users    FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "games_all"    ON games    FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "picks_all"    ON picks    FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "settings_all" ON settings FOR ALL USING (true) WITH CHECK (true);
 
-CREATE OR REPLACE VIEW pickrate_view AS
+-- 픽률 뷰
+CREATE VIEW pickrate_view AS
 SELECT p.game_id, p.picked_winner,
   COUNT(*) AS pick_count,
   ROUND(COUNT(*)*100.0/NULLIF(SUM(COUNT(*)) OVER (PARTITION BY p.game_id),0),1) AS pct
 FROM picks p GROUP BY p.game_id, p.picked_winner;
 
-CREATE OR REPLACE VIEW leaderboard AS
+-- 리더보드 뷰
+CREATE VIEW leaderboard AS
 WITH s AS (
   SELECT p.user_id,
     SUM(CASE WHEN p.is_correct THEN
@@ -89,9 +93,11 @@ WITH s AS (
     COUNT(p.id) AS total_picks
   FROM picks p JOIN games g ON p.game_id=g.id GROUP BY p.user_id
 )
-SELECT u.id, u.nickname, u.ip_address,
+SELECT u.id, u.nickname, u.email,
   COALESCE(s.score,0) AS score, COALESCE(s.correct,0) AS correct,
   COALESCE(s.judged,0) AS judged, COALESCE(s.total_picks,0) AS total_picks,
   u.created_at
 FROM users u LEFT JOIN s ON u.id=s.user_id
 ORDER BY score DESC, correct DESC, created_at ASC;
+
+NOTIFY pgrst, 'reload schema';

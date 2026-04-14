@@ -48,6 +48,27 @@ nba-bracket-v2/
 
 ---
 
+
+### STEP 3-1 — Google OAuth 설정 (로그인에 필요)
+
+**Supabase에서:**
+1. Supabase Dashboard → 왼쪽 메뉴 **Authentication** → **Providers**
+2. **Google** 클릭 → **Enable** 토글 ON
+3. 화면에 표시된 **Callback URL** 복사 (형태: `https://xxxx.supabase.co/auth/v1/callback`)
+
+**Google Cloud Console에서:**
+1. [https://console.cloud.google.com](https://console.cloud.google.com) 접속
+2. 새 프로젝트 생성 (또는 기존 선택)
+3. 좌측 메뉴 **APIs & Services** → **Credentials** → **+ CREATE CREDENTIALS** → **OAuth client ID**
+4. Application type: **Web application**
+5. **Authorized redirect URIs** → **+ ADD URI** → 위에서 복사한 Supabase Callback URL 입력
+6. **CREATE** → **Client ID**와 **Client Secret** 복사
+7. Supabase Google Provider 설정 화면에 Client ID, Client Secret 붙여넣기 → **Save**
+
+> ⚠️ Google Cloud Console에서 **OAuth consent screen** 설정도 필요합니다.
+> **External** 선택 → 앱 이름/이메일 입력 → **Test users**에 테스트할 Google 계정 추가 (심사 전 단계)
+> 실제 이벤트 전에 **Publishing status를 Production**으로 변경하거나, 참가자를 Test users에 추가해야 합니다.
+
 ### STEP 4 — HTML 파일에 연결 정보 입력
 
 `index.html`과 `admin.html` **두 파일 모두** 메모장(또는 VS Code)으로 열고 상단 CONFIG 부분 수정:

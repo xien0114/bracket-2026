@@ -496,15 +496,15 @@ async function saveTitle(){
 // ── 참가자 ──
 async function loadUsers(){
   const[{data:us},{data:ps}]=await Promise.all([
-    sb.from('users').select('id,nickname,ip_address,created_at').order('created_at'),
+    sb.from('users').select('id,nickname,email,ip_address,created_at').order('created_at'),
     sb.from('picks').select('user_id'),
   ]);
   const cnt={};(ps||[]).forEach(p=>{cnt[p.user_id]=(cnt[p.user_id]||0)+1;});
   const body=document.getElementById('users-body');
   document.getElementById('u-title').textContent=`👥 참가자 현황 (총 ${us?.length||0}명)`;
   if(!us?.length){body.innerHTML='<p style="color:var(--mu);font-size:0.82rem">없음</p>';return;}
-  let h='<table class="tbl"><thead><tr><th>닉네임</th><th>예측수</th><th>IP</th><th>가입일</th><th>초기화</th></tr></thead><tbody>';
-  us.forEach(u=>{h+=`<tr><td>${u.nickname}</td><td>${cnt[u.id]||0}</td><td style="color:var(--mu);font-size:0.72rem">${u.ip_address||'-'}</td><td style="color:var(--mu)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td><td><button class="btn btn-sm btn-ghost" onclick="resetUserPicks('${u.id}','${u.nickname.replace(/'/g,"\'")}')">픽 초기화</button></td></tr>`;});
+  let h='<table class="tbl"><thead><tr><th>닉네임</th><th>이메일</th><th>예측수</th><th>IP</th><th>가입일</th><th>픽 초기화</th></tr></thead><tbody>';
+  us.forEach(u=>{h+=`<tr><td>${u.nickname}</td><td style="color:var(--mu);font-size:0.72rem">${u.email||'-'}</td><td>${cnt[u.id]||0}</td><td style="color:var(--mu);font-size:0.72rem">${u.ip_address||'-'}</td><td style="color:var(--mu)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td><td><button class="btn btn-sm btn-ghost" onclick="resetUserPicks('${u.id}','${u.nickname.replace(/'/g,"\'")}')">초기화</button></td></tr>`;});
   h+='</tbody></table>';body.innerHTML=h;
 }
 
