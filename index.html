@@ -316,7 +316,7 @@ function logo(team, override) {
 const RNAME = {1:'1라운드',2:'세미파이널',3:'컨퍼런스 파이널',4:'🏆 파이널'};
 const SCORES = ['4-0','4-1','4-2','4-3'];
 
-let CU=null, games=[], savedPicks={}, localPicks={}, pickRates={}, settings={};
+let CU=null, games=[], savedPicks={}, localPicks={}, pickRates={}, settings={}, isSubmitted=false;
 
 // ── SHA256 ──
 async function sha256(s){
@@ -400,6 +400,7 @@ async function loadAll(){
     if(!pickRates[r.game_id])pickRates[r.game_id]={};
     pickRates[r.game_id][r.picked_winner]={count:r.pick_count,pct:parseFloat(r.pct)};
   });
+  isSubmitted=Object.keys(savedPicks).length>0 || lsGet('submitted_'+CU?.id)==='true'; // DB + localStorage 이중 체크
 }
 
 // ── 브래킷 렌더링 ──────────────────────────────────
@@ -412,6 +413,14 @@ function renderBracket(){
     document.getElementById('save-bar').style.display='none';
     arena.innerHTML='<svg id="blines"></svg>';
     return;
+  }
+  // 제출 완료 시 공지
+  if(isSubmitted){
+    document.getElementById('bnotice').innerHTML='🔒 <b>예측이 제출되었습니다.</b> 수정은 불가합니다. (관리자 초기화 시 재제출 가능)';
+    document.getElementById('bnotice').style.background='rgba(34,197,94,0.08)';
+    document.getElementById('bnotice').style.borderColor='rgba(34,197,94,0.25)';
+    document.getElementById('bnotice').style.color='var(--green)';
+    document.getElementById('save-bar').style.display='none';
   }
 
   // 게임 그룹화
@@ -466,7 +475,7 @@ function renderBracket(){
 function mcCard(game,proj,showPR){
   const pick=localPicks[game.id];
   const saved=savedPicks[game.id];
-  const locked=game.is_locked||!!game.winner;
+  const locked=game.is_locked||!!game.winner||isSubmitted; // 제출 완료 시 전체 잠금
 
   // 팀 정보 (DB or 이전 라운드 픽에서 projected)
   const t1=teamInfo(game,'team1',proj);
@@ -545,7 +554,8 @@ function teamInfo(game,slot,proj){
   if(dbTeam&&dbTeam!=='TBD')return{name:dbTeam,logo:logo(dbTeam,dbLogo),fixed:true};
   const slotNum=slot==='team1'?1:2;
   const p=proj[`${game.id}_${slotNum}`];
-  if(p)return{name:p.name,logo:p.logo,fixed:false}; // 예측값 - 클릭 가능
+  // p.logo는 중간 전달 과정에서 null이 될 수 있으므로 팀명으로 항상 새로 계산
+  if(p)return{name:p.name,logo:logo(p.name,null),fixed:false};
   return null;
 }
 
@@ -559,7 +569,7 @@ function calcProj(){
     if(!g)return null;
     const w=g.winner||(localPicks[g.id]?.picked_winner);
     if(!w)return null;
-    return{name:w,logo:w===g.team1?logo(g.team1,g.team1_logo):logo(g.team2,g.team2_logo)};
+    return{name:w,logo:logo(w,w===g.team1?g.team1_logo:g.team2_logo)}; // w로 직접 조회 (TBD팀 로고 버그 방지)
   }
   ['WEST','EAST'].forEach(conf=>{
     const r2a=games.find(x=>x.conference===conf&&x.round===2&&x.game_order===1);
@@ -575,12 +585,14 @@ function calcProj(){
 }
 
 function pickTeam(gameId,team){
+  if(isSubmitted)return; // 제출 완료 후 수정 차단
   if(!localPicks[gameId])localPicks[gameId]={};
   localPicks[gameId].picked_winner=team;
-  renderBracket(); // 전체 재렌더 (다음 라운드 propagation 반영)
+  renderBracket();
 }
 
 function pickScore(gameId,score){
+  if(isSubmitted)return; // 제출 완료 후 수정 차단
   if(!localPicks[gameId])localPicks[gameId]={};
   localPicks[gameId].finals_score=score;
   // 파이널 카드만 갱신
@@ -593,6 +605,7 @@ function pickScore(gameId,score){
 }
 
 function updateSaveBar(){
+  if(isSubmitted){document.getElementById('save-bar').style.display='none';return;}
   const bar=document.getElementById('save-bar');
   const proj=calcProj();
   // 팀이 확정되었거나 이전 픽으로 예측 가능한 경기 모두 포함
@@ -617,7 +630,11 @@ async function submitPicks(){
     .map(([gid,p])=>({user_id:CU.id,game_id:parseInt(gid),picked_winner:p.picked_winner,finals_score:p.finals_score||null,updated_at:new Date().toISOString()}));
   const{error}=await sb.from('picks').upsert(rows,{onConflict:'user_id,game_id'});
   if(error)alert('저장 실패: '+error.message);
-  else{await loadAll();renderBracket();alert(`✅ ${rows.length}개 예측 저장!`);}
+  else{
+    lsSet('submitted_'+CU.id,'true'); // localStorage에도 잠금 저장
+    await loadAll();renderBracket();
+    alert(`✅ ${rows.length}개 예측이 최종 제출되었습니다.\n이후 수정은 불가합니다.`);
+  }
   btn.disabled=false;btn.textContent='💾 저장';
 }
 
