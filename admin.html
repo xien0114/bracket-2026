@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 - NBA 브래킷</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0d1117; --surface:#161b27; --surface2:#1c2333;
+      --border:#30384f; --text:#e6eaf4; --muted:#6e7a9a;
+      --blue:#1d428a; --red:#c8102e; --gold:#ffc72c; --green:#1b7a4a;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); }
+    header { background:linear-gradient(135deg,#3a0a0a,#1a0808); border-bottom:2px solid var(--red); padding:14px 20px; }
+    header h1 { font-size:1rem; }
+    .container { max-width:980px; margin:0 auto; padding:16px; }
+
+    /* 로그인 */
+    #admin-gate { display:flex; align-items:center; justify-content:center; min-height:80vh; }
+    .gate-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:36px; max-width:340px; width:100%; }
+    .gate-card h2 { text-align:center; margin-bottom:20px; }
+
+    /* 탭 */
+    .tabs { display:flex; gap:4px; background:var(--surface); border-radius:12px; padding:5px; margin-bottom:18px; flex-wrap:wrap; }
+    .tab { flex:1; padding:9px 6px; background:transparent; border:none; color:var(--muted); border-radius:8px; cursor:pointer; font-size:0.82rem; white-space:nowrap; transition:all 0.15s; }
+    .tab.on { background:var(--red); color:#fff; }
+
+    /* 카드 */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+    .card-title { font-size:0.95rem; font-weight:700; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+
+    /* 입력 */
+    label { display:block; font-size:0.78rem; color:var(--muted); margin-bottom:5px; margin-top:10px; }
+    input[type=text],input[type=password],input[type=number],select,textarea {
+      width:100%; padding:9px 12px; background:var(--bg);
+      border:1px solid var(--border); color:var(--text);
+      border-radius:8px; font-size:0.88rem;
+    }
+    input:focus,select:focus,textarea:focus { outline:none; border-color:var(--gold); }
+    textarea { resize:vertical; min-height:60px; font-family:monospace; }
+
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .row4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; }
+
+    /* 버튼 */
+    .btn { padding:9px 16px; border:none; border-radius:8px; cursor:pointer; font-size:0.85rem; font-weight:600; transition:all 0.15s; display:inline-flex; align-items:center; gap:5px; }
+    .btn:hover:not(:disabled) { filter:brightness(1.1); }
+    .btn:disabled { opacity:0.5; cursor:default; }
+    .btn-full { width:100%; justify-content:center; margin-top:12px; }
+    .btn-blue { background:var(--blue); color:#fff; }
+    .btn-red  { background:var(--red); color:#fff; }
+    .btn-gold { background:var(--gold); color:#111; }
+    .btn-green { background:var(--green); color:#fff; }
+    .btn-ghost { background:transparent; border:1px solid var(--border); color:var(--text); }
+    .btn-sm { padding:5px 10px; font-size:0.75rem; border-radius:6px; }
+
+    .msg { padding:8px 12px; border-radius:8px; font-size:0.82rem; margin-top:8px; }
+    .msg-ok  { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .msg-err { background:rgba(200,16,46,0.15); color:#f87171; }
+
+    /* 테이블 */
+    .tbl { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    .tbl th { padding:9px 12px; background:var(--surface2); color:var(--muted); text-align:left; border-bottom:1px solid var(--border); }
+    .tbl td { padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .tbl tr:hover td { background:rgba(255,255,255,0.02); }
+
+    .badge { padding:2px 8px; border-radius:12px; font-size:0.72rem; font-weight:600; }
+    .b-lock { background:rgba(200,16,46,0.2); color:#f87171; }
+    .b-open { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .b-done { background:rgba(255,199,44,0.15); color:var(--gold); }
+
+    /* 점수 설정 */
+    .score-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .score-item label { font-size:0.8rem; color:var(--muted); }
+    .score-item input { margin-top:4px; }
+
+    /* 결과 입력 */
+    .result-item {
+      display:flex; align-items:center; gap:8px; padding:10px;
+      background:var(--surface2); border-radius:9px; margin-bottom:8px;
+    }
+    .result-item .matchup { flex:1; font-size:0.85rem; min-width:0; }
+    .result-item .matchup small { display:block; color:var(--muted); font-size:0.72rem; }
+    .result-item select { width:auto; flex:1; max-width:160px; padding:7px 10px; font-size:0.82rem; }
+    .result-item .btn-sm { flex-shrink:0; }
+
+    /* 토글 스위치 */
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle-info { font-size:0.88rem; }
+    .toggle-info small { display:block; color:var(--muted); font-size:0.75rem; margin-top:2px; }
+    .toggle {
+      position:relative; width:44px; height:24px;
+      background:var(--border); border-radius:12px; cursor:pointer; transition:background 0.2s;
+    }
+    .toggle.on { background:var(--green); }
+    .toggle::after {
+      content:''; position:absolute; top:3px; left:3px;
+      width:18px; height:18px; background:#fff; border-radius:50%; transition:transform 0.2s;
+    }
+    .toggle.on::after { transform:translateX(20px); }
+
+    .spinning { display:inline-block; animation:spin 0.8s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @media(max-width:600px){.row3,.row4{grid-template-columns:1fr 1fr}.row4{grid-template-columns:1fr 1fr}}
+  </style>
+</head>
+<body>
+<header><h1>🔧 관리자 패널 — NBA 브래킷 이벤트</h1></header>
+
+<!-- 로그인 -->
+<div id="admin-gate">
+  <div class="gate-card">
+    <h2>🔑 관리자 로그인</h2>
+    <label>비밀번호</label>
+    <input type="password" id="adm-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')admLogin()">
+    <button class="btn btn-red btn-full" onclick="admLogin()">로그인</button>
+    <div class="msg msg-err" id="gate-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div id="adm-main" style="display:none" class="container">
+  <div class="tabs">
+    <button class="tab on" onclick="showTab('games',this)">📋 경기 관리</button>
+    <button class="tab"    onclick="showTab('results',this)">✅ 결과 입력</button>
+    <button class="tab"    onclick="showTab('scoring',this)">🎯 점수 설정</button>
+    <button class="tab"    onclick="showTab('display',this)">👁 공개 설정</button>
+    <button class="tab"    onclick="showTab('users',this)">👥 참가자</button>
+  </div>
+
+  <!-- ── 경기 관리 ── -->
+  <div id="tab-games">
+    <!-- 1라운드 일괄 등록 -->
+    <div class="card">
+      <div class="card-title">⚡ 2026 1라운드 일괄 등록</div>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px">플레이인 완료 후 7/8시드 팀명 입력 → 일괄 등록</p>
+      <div class="row2">
+        <div><label>🏀 이스트 7시드</label><input id="e7" placeholder="예: Philadelphia 76ers"></div>
+        <div><label>🏀 이스트 8시드</label><input id="e8" placeholder="예: Miami Heat"></div>
+        <div><label>🏀 웨스트 7시드</label><input id="w7" placeholder="예: Phoenix Suns"></div>
+        <div><label>🏀 웨스트 8시드</label><input id="w8" placeholder="예: Portland Trail Blazers"></div>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="bulkR1()">1라운드 8경기 일괄 등록</button>
+      <div id="bulk-msg"></div>
+    </div>
+
+    <!-- 경기 직접 추가 -->
+    <div class="card">
+      <div class="card-title">➕ 경기 직접 추가</div>
+      <div class="row4">
+        <div>
+          <label>라운드</label>
+          <select id="add-round">
+            <option value="1">1라운드</option><option value="2">세미파이널</option>
+            <option value="3">컨퍼런스파이널</option><option value="4">파이널</option>
+          </select>
+        </div>
+        <div>
+          <label>컨퍼런스</label>
+          <select id="add-conf">
+            <option value="EAST">EAST</option><option value="WEST">WEST</option><option value="FINALS">FINALS</option>
+          </select>
+        </div>
+        <div><label>순서</label><input type="number" id="add-ord" value="1" min="1" max="8"></div>
+        <div>
+          <label>다음경기ID (선택)</label>
+          <input id="add-nextid" placeholder="없으면 비워두기">
+        </div>
+      </div>
+      <div class="row2" style="margin-top:4px">
+        <div><label>팀1 이름</label><input id="add-t1" placeholder="팀 이름"></div>
+        <div><label>팀1 로고 URL (선택)</label><input id="add-t1logo" placeholder="https://..."></div>
+        <div><label>팀2 이름</label><input id="add-t2" placeholder="팀 이름"></div>
+        <div><label>팀2 로고 URL (선택)</label><input id="add-t2logo" placeholder="https://..."></div>
+      </div>
+      <div class="row2" style="margin-top:4px">
+        <div>
+          <label>다음 라운드 슬롯 (1=team1자리, 2=team2자리)</label>
+          <select id="add-nextslot"><option value="">-</option><option value="1">1번 슬롯</option><option value="2">2번 슬롯</option></select>
+        </div>
+      </div>
+      <button class="btn btn-blue" style="margin-top:12px" onclick="addGame()">경기 추가</button>
+      <div id="add-msg"></div>
+    </div>
+
+    <!-- 경기 목록 -->
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between">
+        <span>📋 등록된 경기 목록</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadGames()">🔄 새로고침</button>
+      </div>
+      <div id="games-tbl"></div>
+    </div>
+  </div>
+
+  <!-- ── 결과 입력 ── -->
+  <div id="tab-results" style="display:none">
+    <div class="card">
+      <div class="card-title">✅ 결과 입력 & 채점</div>
+      <div style="background:rgba(255,199,44,0.08);border:1px solid rgba(255,199,44,0.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:0.82rem">
+        📊 채점 기준은 [점수 설정] 탭에서 변경 가능합니다.
+      </div>
+      <div id="results-body"></div>
+      <button class="btn btn-gold btn-full" onclick="recalc()" style="margin-top:16px">🔄 전체 채점 재계산</button>
+      <div id="recalc-msg"></div>
+    </div>
+  </div>
+
+  <!-- ── 점수 설정 ── -->
+  <div id="tab-scoring" style="display:none">
+    <div class="card">
+      <div class="card-title">🎯 라운드별 점수 설정</div>
+      <p style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">변경 후 저장하면 즉시 적용됩니다. 기존 채점은 재계산 버튼으로 갱신하세요.</p>
+      <div class="score-grid">
+        <div class="score-item"><label>1라운드 (정답 시)</label><input type="number" id="s-r1" min="0" value="1"></div>
+        <div class="score-item"><label>세미파이널</label><input type="number" id="s-r2" min="0" value="2"></div>
+        <div class="score-item"><label>컨퍼런스 파이널</label><input type="number" id="s-r3" min="0" value="4"></div>
+        <div class="score-item"><label>NBA 파이널</label><input type="number" id="s-r4" min="0" value="8"></div>
+        <div class="score-item"><label>파이널 스코어 보너스</label><input type="number" id="s-bonus" min="0" value="4"></div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--surface2);border-radius:8px;font-size:0.82rem;color:var(--muted)">
+        💡 만점: 1라운드(8경기) + 세미파이널(4) + 컨퍼런스파이널(2) + 파이널(1) + 스코어 보너스
+        = <b id="max-score-preview" style="color:var(--gold)">계산 중...</b>
+      </div>
+      <button class="btn btn-blue btn-full" onclick="saveScoring()">점수 체계 저장</button>
+      <div id="scoring-msg"></div>
+    </div>
+  </div>
+
+  <!-- ── 공개 설정 ── -->
+  <div id="tab-display" style="display:none">
+    <div class="card">
+      <div class="card-title">👁 픽률 & 이벤트 공개 설정</div>
+      <div id="display-settings">
+        <div class="toggle-row">
+          <div class="toggle-info">
+            픽률 항상 공개
+            <small>마감 전에도 대진별 픽률 % 표시</small>
+          </div>
+          <div class="toggle" id="tog-pickrate" onclick="toggleSetting('show_pickrate',this)"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            마감 후 픽률 자동 공개
+            <small>경기 잠금(🔒) 처리 후 자동으로 픽률 공개</small>
+          </div>
+          <div class="toggle" id="tog-after-lock" onclick="toggleSetting('pickrate_after_lock',this)"></div>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            이벤트 오픈
+            <small>OFF 시 신규 예측 불가 (관리자만 확인 가능)</small>
+          </div>
+          <div class="toggle" id="tog-open" onclick="toggleSetting('event_open',this)"></div>
+        </div>
+      </div>
+      <div style="margin-top:18px">
+        <label>이벤트 제목</label>
+        <input id="ev-title-input" placeholder="NBA 2026 플레이오프 브래킷">
+        <button class="btn btn-blue" style="margin-top:8px" onclick="saveTitle()">제목 저장</button>
+      </div>
+      <div id="display-msg"></div>
+    </div>
+  </div>
+
+  <!-- ── 참가자 ── -->
+  <div id="tab-users" style="display:none">
+    <div class="card">
+      <div class="card-title" id="users-title">👥 참가자 현황</div>
+      <div id="users-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://oqlbyscmeqoyepevnpwr.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTc1NDYsImV4cCI6MjA5MTczMzU0Nn0.GlUepyFe0jeo7q2o5pxzzi1V9W-nI85_fosMu-rB5jg';
+const ADMIN_PW = 'Rjsgh147!@#'; // ← 원하는 비밀번호로 교체
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const ROUND_NAMES = {1:'1라운드',2:'세미파이널',3:'컨퍼런스파이널',4:'파이널'};
+let games = [];
+let settingsMap = {};
+
+function admLogin() {
+  const pw = document.getElementById('adm-pw').value;
+  if (pw === ADMIN_PW) {
+    document.getElementById('admin-gate').style.display = 'none';
+    document.getElementById('adm-main').style.display = '';
+    loadAll();
+  } else {
+    const el = document.getElementById('gate-msg');
+    el.textContent = '비밀번호가 올바르지 않습니다.';
+    el.style.display = '';
+  }
+}
+
+async function loadAll() { await Promise.all([loadGames(), loadSettings()]); }
+
+async function loadGames() {
+  const {data} = await sb.from('games').select('*').order('round').order('game_order');
+  games = data || [];
+  renderGamesTable();
+}
+
+async function loadSettings() {
+  const {data} = await sb.from('settings').select('*');
+  if (!data) return;
+  data.forEach(r => settingsMap[r.key] = r.value);
+  // 토글 상태 반영
+  setToggle('tog-pickrate', settingsMap.show_pickrate === 'true');
+  setToggle('tog-after-lock', settingsMap.pickrate_after_lock === 'true');
+  setToggle('tog-open', settingsMap.event_open !== 'false');
+  if (settingsMap.event_title) document.getElementById('ev-title-input').value = settingsMap.event_title;
+  // 점수
+  try {
+    const s = JSON.parse(settingsMap.scoring || '{}');
+    if (s.r1 !== undefined) document.getElementById('s-r1').value = s.r1;
+    if (s.r2 !== undefined) document.getElementById('s-r2').value = s.r2;
+    if (s.r3 !== undefined) document.getElementById('s-r3').value = s.r3;
+    if (s.r4 !== undefined) document.getElementById('s-r4').value = s.r4;
+    if (s.bonus !== undefined) document.getElementById('s-bonus').value = s.bonus;
+    updateMaxScore();
+  } catch {}
+}
+
+// ── 경기 관리 ────────────────────────────────
+function renderGamesTable() {
+  const container = document.getElementById('games-tbl');
+  if (!games.length) { container.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;padding:10px 0">등록된 경기 없음</p>'; return; }
+  let html = `<table class="tbl"><thead><tr>
+    <th>라운드</th><th>컨퍼런스</th><th>팀1</th><th>팀2</th><th>다음경기</th><th>상태</th><th>잠금</th><th>삭제</th>
+  </tr></thead><tbody>`;
+  games.forEach(g => {
+    const status = g.winner ? `<span class="badge b-done">✅${g.winner}</span>` 
+      : g.is_locked ? `<span class="badge b-lock">🔒마감</span>`
+      : `<span class="badge b-open">예측중</span>`;
+    html += `<tr>
+      <td>${ROUND_NAMES[g.round]}</td>
+      <td>${g.conference||'-'}</td>
+      <td>${g.team1||<span style="color:var(--muted)">TBD</span>}</td>
+      <td>${g.team2||'TBD'}</td>
+      <td>${g.next_game_id ? `G${g.next_game_id}(슬롯${g.next_slot})` : '-'}</td>
+      <td>${status}</td>
+      <td><button class="btn btn-sm ${g.is_locked?'btn-green':'btn-red'}" onclick="toggleLock(${g.id},${g.is_locked})">${g.is_locked?'🔓열기':'🔒마감'}</button></td>
+      <td><button class="btn btn-sm btn-ghost" onclick="deleteGame(${g.id})">🗑</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+async function addGame() {
+  const round = parseInt(document.getElementById('add-round').value);
+  const conf  = document.getElementById('add-conf').value;
+  const ord   = parseInt(document.getElementById('add-ord').value)||1;
+  const t1    = document.getElementById('add-t1').value.trim();
+  const t2    = document.getElementById('add-t2').value.trim();
+  const t1l   = document.getElementById('add-t1logo').value.trim()||null;
+  const t2l   = document.getElementById('add-t2logo').value.trim()||null;
+  const nextId = parseInt(document.getElementById('add-nextid').value)||null;
+  const nextSlot = parseInt(document.getElementById('add-nextslot').value)||null;
+
+  if (!t1||!t2) return showMsg('add-msg','팀 이름을 입력하세요.',true);
+  const row = {round,conference:conf,game_order:ord,team1:t1,team2:t2};
+  if(t1l) row.team1_logo=t1l; if(t2l) row.team2_logo=t2l;
+  if(nextId) row.next_game_id=nextId; if(nextSlot) row.next_slot=nextSlot;
+
+  const {error} = await sb.from('games').insert(row);
+  if(error) return showMsg('add-msg','오류: '+error.message,true);
+  showMsg('add-msg','경기 추가 완료!',false);
+  loadGames();
+}
+
+// 2026 1라운드 일괄 등록 - next_game_id는 나중에 세미파이널 등록 후 연결
+async function bulkR1() {
+  const e7=document.getElementById('e7').value.trim();
+  const e8=document.getElementById('e8').value.trim();
+  const w7=document.getElementById('w7').value.trim();
+  const w8=document.getElementById('w8').value.trim();
+  if(!e7||!e8||!w7||!w8) return showMsg('bulk-msg','모두 입력하세요.',true);
+
+  const rows = [
+    {round:1,conference:'EAST',game_order:1,team1:'Detroit Pistons',team2:e8},
+    {round:1,conference:'EAST',game_order:2,team1:'Boston Celtics',team2:e7},
+    {round:1,conference:'EAST',game_order:3,team1:'New York Knicks',team2:'Atlanta Hawks'},
+    {round:1,conference:'EAST',game_order:4,team1:'Cleveland Cavaliers',team2:'Toronto Raptors'},
+    {round:1,conference:'WEST',game_order:5,team1:'OKC Thunder',team2:w8},
+    {round:1,conference:'WEST',game_order:6,team1:'Houston Rockets',team2:w7},
+    {round:1,conference:'WEST',game_order:7,team1:'Minnesota Timberwolves',team2:'Denver Nuggets'},
+    {round:1,conference:'WEST',game_order:8,team1:'Los Angeles Lakers',team2:'Dallas Mavericks'},
+  ];
+  const {error} = await sb.from('games').insert(rows);
+  if(error) return showMsg('bulk-msg','오류: '+error.message,true);
+  showMsg('bulk-msg','✅ 1라운드 8경기 등록 완료! next_game_id는 세미파이널 등록 후 연결하세요.',false);
+  loadGames();
+}
+
+async function toggleLock(id, cur) {
+  await sb.from('games').update({is_locked:!cur}).eq('id',id);
+  loadGames();
+}
+async function deleteGame(id) {
+  if(!confirm('삭제 시 관련 예측도 삭제됩니다. 계속?')) return;
+  await sb.from('games').delete().eq('id',id);
+  loadGames();
+}
+
+// ── 결과 입력 ────────────────────────────────
+function renderResults() {
+  const body = document.getElementById('results-body');
+  if(!games.length){body.innerHTML='<p style="color:var(--muted);font-size:0.85rem">등록된 경기 없음</p>';return;}
+  let html='';
+  const rounds=[...new Set(games.map(g=>g.round))].sort((a,b)=>a-b);
+  rounds.forEach(r=>{
+    html+=`<div style="font-size:0.75rem;color:var(--muted);margin:14px 0 8px;text-transform:uppercase;letter-spacing:1px">${ROUND_NAMES[r]}</div>`;
+    games.filter(g=>g.round===r).forEach(game=>{
+      const isF=game.round===4;
+      html+=`<div class="result-item">
+        <div class="matchup">
+          <b>${game.team1||'?'}</b> vs <b>${game.team2||'?'}</b>
+          <small>${game.winner?'✅ 결과: '+game.winner : game.is_locked?'🔒 마감':'예측중'}</small>
+        </div>
+        <select id="w-${game.id}">
+          <option value="">승자 선택</option>
+          ${game.team1?`<option value="${game.team1}" ${game.winner===game.team1?'selected':''}>${game.team1}</option>`:''}
+          ${game.team2?`<option value="${game.team2}" ${game.winner===game.team2?'selected':''}>${game.team2}</option>`:''}
+        </select>
+        ${isF?`<select id="s-${game.id}" style="max-width:90px">
+          <option value="">스코어</option>
+          ${['4-0','4-1','4-2','4-3'].map(s=>`<option value="${s}" ${game.finals_score===s?'selected':''}>${s}</option>`).join('')}
+        </select>`:''}
+        <button class="btn btn-sm btn-green" onclick="saveResult(${game.id},${isF})">저장</button>
+      </div>`;
+    });
+  });
+  body.innerHTML=html;
+}
+
+async function saveResult(gameId, isFinale) {
+  const w=document.getElementById(`w-${gameId}`)?.value;
+  if(!w) return alert('승자를 선택하세요.');
+  const upd={winner:w,is_locked:true};
+  if(isFinale){
+    const s=document.getElementById(`s-${gameId}`)?.value;
+    if(!s) return alert('파이널 스코어를 선택하세요.');
+    upd.finals_score=s;
+  }
+  const {error}=await sb.from('games').update(upd).eq('id',gameId);
+  if(error) return alert('오류: '+error.message);
+  await loadGames();
+  renderResults();
+  showMsg('recalc-msg','저장 완료. 채점 재계산을 눌러주세요.',false);
+}
+
+async function recalc() {
+  const btn=document.querySelector('[onclick="recalc()"]');
+  btn.disabled=true; btn.innerHTML='<span class="spinning">🔄</span> 계산 중...';
+  const doneGames=games.filter(g=>g.winner);
+  for(const game of doneGames){
+    const{data:picks}=await sb.from('picks').select('id,picked_winner,finals_score').eq('game_id',game.id);
+    if(!picks?.length) continue;
+    for(const pk of picks){
+      await sb.from('picks').update({is_correct:pk.picked_winner===game.winner}).eq('id',pk.id);
+    }
+  }
+  showMsg('recalc-msg','✅ 전체 채점 재계산 완료!',false);
+  btn.disabled=false; btn.textContent='🔄 전체 채점 재계산';
+}
+
+// ── 점수 설정 ────────────────────────────────
+function updateMaxScore() {
+  const r1=parseInt(document.getElementById('s-r1').value)||0;
+  const r2=parseInt(document.getElementById('s-r2').value)||0;
+  const r3=parseInt(document.getElementById('s-r3').value)||0;
+  const r4=parseInt(document.getElementById('s-r4').value)||0;
+  const b =parseInt(document.getElementById('s-bonus').value)||0;
+  const max=8*r1+4*r2+2*r3+1*r4+b;
+  document.getElementById('max-score-preview').textContent=`최대 ${max}점`;
+}
+['s-r1','s-r2','s-r3','s-r4','s-bonus'].forEach(id=>{
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById(id)?.addEventListener('input',updateMaxScore);
+  });
+});
+
+async function saveScoring() {
+  const s={
+    r1:parseInt(document.getElementById('s-r1').value)||1,
+    r2:parseInt(document.getElementById('s-r2').value)||2,
+    r3:parseInt(document.getElementById('s-r3').value)||4,
+    r4:parseInt(document.getElementById('s-r4').value)||8,
+    bonus:parseInt(document.getElementById('s-bonus').value)||4,
+  };
+  const {error}=await sb.from('settings').upsert({key:'scoring',value:JSON.stringify(s)},{onConflict:'key'});
+  if(error) return showMsg('scoring-msg','오류: '+error.message,true);
+  showMsg('scoring-msg','✅ 점수 체계 저장 완료! 채점 재계산 탭에서 갱신하세요.',false);
+}
+
+// ── 공개 설정 ────────────────────────────────
+function setToggle(id, on) { document.getElementById(id)?.classList.toggle('on',on); }
+
+async function toggleSetting(key, el) {
+  const cur = el.classList.contains('on');
+  el.classList.toggle('on');
+  const newVal = (!cur).toString();
+  await sb.from('settings').upsert({key, value:newVal},{onConflict:'key'});
+  settingsMap[key]=newVal;
+  showMsg('display-msg','저장됨',false);
+  setTimeout(()=>{document.getElementById('display-msg').textContent='';},2000);
+}
+
+async function saveTitle() {
+  const t=document.getElementById('ev-title-input').value.trim();
+  if(!t) return;
+  await sb.from('settings').upsert({key:'event_title',value:t},{onConflict:'key'});
+  showMsg('display-msg','✅ 제목 저장 완료',false);
+}
+
+// ── 참가자 ───────────────────────────────────
+async function loadUsers() {
+  const [{data:users},{data:picks}]=await Promise.all([
+    sb.from('users').select('id,nickname,created_at').order('created_at'),
+    sb.from('picks').select('user_id'),
+  ]);
+  const cnt={};
+  (picks||[]).forEach(p=>{cnt[p.user_id]=(cnt[p.user_id]||0)+1;});
+  const body=document.getElementById('users-body');
+  document.getElementById('users-title').textContent=`👥 참가자 현황 (총 ${users?.length||0}명)`;
+  if(!users?.length){body.innerHTML='<p style="color:var(--muted);font-size:0.85rem">참가자 없음</p>';return;}
+  let html=`<table class="tbl"><thead><tr><th>닉네임</th><th>예측 수</th><th>가입일</th></tr></thead><tbody>`;
+  users.forEach(u=>{
+    html+=`<tr><td>${u.nickname}</td><td>${cnt[u.id]||0}</td><td style="color:var(--muted)">${new Date(u.created_at).toLocaleDateString('ko-KR')}</td></tr>`;
+  });
+  html+='</tbody></table>';
+  body.innerHTML=html;
+}
+
+// ── 탭 전환 ─────────────────────────────────
+function showTab(name, btn) {
+  ['games','results','scoring','display','users'].forEach(t=>{
+    document.getElementById(`tab-${t}`).style.display=t===name?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  if(name==='results') renderResults();
+  if(name==='users') loadUsers();
+  if(name==='scoring') updateMaxScore();
+  if(name==='display') loadSettings();
+}
+
+function showMsg(id, msg, isErr) {
+  const el=document.getElementById(id); if(!el) return;
+  el.textContent=msg; el.className='msg '+(isErr?'msg-err':'msg-ok');
+  setTimeout(()=>{if(el)el.textContent='';},5000);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('adm-pw').addEventListener('keydown',e=>{if(e.key==='Enter')admLogin();});
+  // 점수 입력 이벤트
+  ['s-r1','s-r2','s-r3','s-r4','s-bonus'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('input',updateMaxScore);
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA 2026 플레이오프 브래킷</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b27;
+      --surface2: #1c2333;
+      --border: #30384f;
+      --text: #e6eaf4;
+      --muted: #6e7a9a;
+      --blue: #1d428a;
+      --blue2: #2554a8;
+      --red: #c8102e;
+      --gold: #ffc72c;
+      --green: #22c55e;
+      --radius: 12px;
+    }
+
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── 헤더 ── */
+    header {
+      background: linear-gradient(135deg, #0d1f4d 0%, #1a0a2e 100%);
+      border-bottom: 2px solid var(--gold);
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.3px; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .user-chip {
+      background: rgba(255,199,44,0.12); border: 1px solid rgba(255,199,44,0.3);
+      color: var(--gold); padding: 5px 12px; border-radius: 20px;
+      font-size: 0.8rem; cursor: pointer;
+    }
+
+    /* ── 로그인 ── */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: calc(100vh - 56px);
+    }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 36px; width: 100%; max-width: 380px; margin: 16px;
+    }
+    .login-card .logo { text-align: center; font-size: 3rem; margin-bottom: 6px; }
+    .login-card h2 { text-align: center; font-size: 1.3rem; margin-bottom: 4px; }
+    .login-card p { text-align: center; color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+
+    .tab-row { display: flex; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 20px; gap: 4px; }
+    .tab-pill {
+      flex: 1; padding: 9px; background: transparent; border: none;
+      color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .tab-pill.on { background: var(--blue); color: #fff; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 5px; }
+    .field input {
+      width: 100%; padding: 11px 14px; background: var(--bg);
+      border: 1px solid var(--border); color: var(--text);
+      border-radius: 9px; font-size: 0.95rem; transition: border-color 0.2s;
+    }
+    .field input:focus { outline: none; border-color: var(--gold); }
+
+    .btn {
+      padding: 12px 20px; border: none; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: default; transform: none !important; }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-blue { background: var(--blue); color: #fff; }
+    .btn-gold { background: var(--gold); color: #111; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 7px; }
+
+    .toast { padding: 10px 0; font-size: 0.85rem; text-align: center; border-radius: 8px; min-height: 32px; }
+    .toast.err { color: #f87171; }
+    .toast.ok { color: var(--green); }
+
+    /* ── 바텀 탭 ── */
+    #main-screen { display: none; padding-bottom: 72px; }
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; z-index: 100;
+    }
+    .nav-btn {
+      flex: 1; padding: 12px 6px; background: transparent; border: none;
+      color: var(--muted); cursor: pointer; font-size: 0.7rem;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: color 0.2s;
+    }
+    .nav-btn .icon { font-size: 1.3rem; }
+    .nav-btn.on { color: var(--gold); }
+
+    /* ── 탭 패널 ── */
+    .panel { display: none; padding: 16px; max-width: 640px; margin: 0 auto; }
+    .panel.on { display: block; }
+    .panel-title {
+      font-size: 1.05rem; font-weight: 700;
+      margin-bottom: 16px; color: var(--text);
+    }
+
+    /* ── 브래킷 ── */
+    .notice-bar {
+      background: rgba(255,199,44,0.1); border: 1px solid rgba(255,199,44,0.25);
+      border-radius: 10px; padding: 11px 14px; font-size: 0.82rem; color: var(--gold);
+      margin-bottom: 16px; line-height: 1.5;
+    }
+    .round-header {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px;
+      color: var(--muted); margin: 20px 0 10px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .round-header span { color: var(--gold); margin-right: 6px; }
+
+    /* 경기 카드 */
+    .game-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      margin-bottom: 10px; transition: border-color 0.2s;
+    }
+    .game-card.has-pick { border-color: rgba(255,199,44,0.4); }
+    .game-card.locked { opacity: 0.8; }
+
+    .game-meta {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 7px 13px; background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .badge-lock { background: var(--red); color: #fff; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; }
+    .badge-done { background: #1b7a4a; color: #fff; padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; }
+
+    /* 팀 버튼 */
+    .team-btn {
+      width: 100%; padding: 13px; background: transparent; border: none;
+      color: var(--text); text-align: left; cursor: pointer;
+      display: flex; align-items: center; gap: 11px;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+    .team-btn:last-of-type { border-bottom: none; }
+    .team-btn:hover:not(:disabled) { background: rgba(255,255,255,0.04); }
+    .team-btn.selected { background: rgba(29,66,138,0.25); }
+    .team-btn.winner-team { background: rgba(34,197,94,0.1); }
+    .team-btn.loser-team { opacity: 0.4; }
+    .team-btn:disabled { cursor: default; }
+
+    .team-logo {
+      width: 34px; height: 34px; border-radius: 50%;
+      object-fit: contain; background: rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+    .team-logo-placeholder {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: var(--surface2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; color: var(--muted); flex-shrink: 0; text-align: center;
+      line-height: 1.2;
+    }
+    .team-name { flex: 1; font-size: 0.9rem; }
+    .team-name.tbd { color: var(--muted); font-style: italic; font-size: 0.82rem; }
+    .pick-star { color: var(--gold); font-size: 0.9rem; }
+    .check-ok { color: var(--green); font-size: 1rem; }
+    .check-no { color: var(--red); font-size: 1rem; }
+
+    /* 픽률 바 */
+    .pickrate-row {
+      display: flex; align-items: center; gap: 0;
+      height: 22px; border-top: 1px solid var(--border);
+      overflow: hidden; font-size: 0.72rem; font-weight: 700;
+    }
+    .pr-left {
+      background: rgba(200,16,46,0.35); color: #fff;
+      display: flex; align-items: center; padding: 0 8px;
+      height: 100%; transition: width 0.4s ease; min-width: 32px;
+    }
+    .pr-right {
+      background: rgba(29,66,138,0.5); color: #fff;
+      display: flex; align-items: center; justify-content: flex-end;
+      padding: 0 8px; height: 100%; flex: 1;
+      transition: width 0.4s ease;
+    }
+    .pr-total { 
+      padding: 0 8px; color: var(--muted); font-size: 0.68rem;
+      white-space: nowrap; background: var(--surface2);
+      display: flex; align-items: center; height: 100%;
+    }
+
+    /* 파이널 스코어 */
+    .finals-score-section {
+      padding: 11px 13px;
+      background: rgba(200,16,46,0.07);
+      border-top: 1px solid var(--border);
+    }
+    .finals-score-section .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 7px; }
+    .score-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .score-chip {
+      padding: 5px 14px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); border-radius: 20px;
+      font-size: 0.82rem; cursor: pointer; transition: all 0.15s;
+    }
+    .score-chip.on { background: var(--red); border-color: var(--red); color: #fff; font-weight: 700; }
+    .score-chip:disabled { cursor: default; }
+
+    /* 제출 고정 버튼 */
+    .submit-bar {
+      position: fixed; bottom: 62px; left: 0; right: 0;
+      padding: 10px 16px;
+      background: linear-gradient(to top, var(--bg) 60%, transparent);
+      display: none;
+    }
+    .submit-bar .inner {
+      max-width: 640px; margin: 0 auto;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .submit-bar .progress { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+    .submit-bar .progress b { color: var(--gold); }
+
+    /* ── 리더보드 ── */
+    .lb-header {
+      display: grid; grid-template-columns: 44px 1fr 56px 56px;
+      padding: 8px 12px; font-size: 0.75rem; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .lb-row {
+      display: grid; grid-template-columns: 44px 1fr 56px 56px;
+      padding: 11px 12px; border-bottom: 1px solid var(--border);
+      align-items: center; font-size: 0.88rem;
+      transition: background 0.15s;
+    }
+    .lb-row:hover { background: rgba(255,255,255,0.02); }
+    .lb-row.me { background: rgba(29,66,138,0.18); }
+    .rank-no { font-weight: 700; font-size: 0.9rem; text-align: center; }
+    .r1 { color: var(--gold); }
+    .r2 { color: #c0c0c0; }
+    .r3 { color: #cd7f32; }
+    .lb-score { color: var(--gold); font-weight: 700; text-align: right; }
+    .lb-correct { color: var(--muted); font-size: 0.8rem; text-align: right; }
+    .lb-me-tag { font-size: 0.68rem; color: var(--gold); }
+    .lb-refresh { 
+      display: flex; align-items: center; gap: 6px; margin-bottom: 12px;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .lb-refresh button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
+
+    /* ── 내 예측 ── */
+    .my-pick-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 13px; margin-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .my-pick-matchup { font-size: 0.75rem; color: var(--muted); margin-bottom: 3px; }
+    .my-pick-team { font-size: 0.9rem; font-weight: 600; }
+    .my-pick-score-bonus { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .result-badge {
+      padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; white-space: nowrap;
+    }
+    .rb-ok { background: rgba(34,197,94,0.15); color: var(--green); }
+    .rb-no { background: rgba(200,16,46,0.15); color: #f87171; }
+    .rb-wait { background: rgba(110,122,154,0.15); color: var(--muted); }
+    .my-total { 
+      text-align: right; padding: 14px 0; 
+      font-size: 1.1rem; color: var(--gold); font-weight: 700;
+      border-top: 1px solid var(--border); margin-top: 8px;
+    }
+
+    /* ── 공통 ── */
+    .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 0.9rem; }
+    .spin-wrap { text-align: center; padding: 40px; }
+    .spinner {
+      display: inline-block; width: 28px; height: 28px;
+      border: 3px solid var(--border); border-top-color: var(--gold);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 480px) {
+      .panel { padding: 12px; }
+      .team-name { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏀 <span id="ev-title">NBA 2026 플레이오프 브래킷</span></h1>
+  <div class="header-right">
+    <div class="user-chip" id="user-chip" style="display:none" onclick="logout()">👤 <span id="nick-label"></span> ✕</div>
+  </div>
+</header>
+
+<!-- ── 로그인 ── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo">🏆</div>
+    <h2>브래킷 이벤트 참가</h2>
+    <p>닉네임 + 4자리 PIN으로 참가하세요</p>
+
+    <div class="tab-row">
+      <button class="tab-pill on" onclick="switchTab('login',this)">로그인</button>
+      <button class="tab-pill" onclick="switchTab('reg',this)">신규 참가</button>
+    </div>
+
+    <div id="form-login">
+      <div class="field"><label>닉네임</label><input id="l-nick" placeholder="닉네임 입력" maxlength="20"></div>
+      <div class="field"><label>4자리 PIN</label><input id="l-pin" type="password" placeholder="••••" maxlength="4" inputmode="numeric"></div>
+      <button class="btn btn-blue btn-full" onclick="doLogin()">로그인</button>
+    </div>
+
+    <div id="form-reg" style="display:none">
+      <div class="field"><label>닉네임 (최대 20자)</label><input id="r-nick" placeholder="사용할 닉네임" maxlength="20"></div>
+      <div class="field"><label>4자리 PIN 설정</label><input id="r-pin" type="password" placeholder="숫자 4자리" maxlength="4" inputmode="numeric"></div>
+      <div class="field"><label>PIN 확인</label><input id="r-pin2" type="password" placeholder="재입력" maxlength="4" inputmode="numeric"></div>
+      <button class="btn btn-gold btn-full" onclick="doReg()">참가 신청</button>
+    </div>
+
+    <div class="toast" id="login-toast"></div>
+  </div>
+</div>
+
+<!-- ── 메인 ── -->
+<div id="main-screen">
+
+  <!-- 브래킷 패널 -->
+  <div class="panel on" id="panel-bracket">
+    <div class="notice-bar" id="bracket-notice">⏳ 브래킷을 불러오는 중...</div>
+    <div id="bracket-body"></div>
+  </div>
+
+  <!-- 내 예측 패널 -->
+  <div class="panel" id="panel-mypicks">
+    <div class="panel-title">✅ 내 예측</div>
+    <div id="mypicks-body"><div class="spin-wrap"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- 리더보드 패널 -->
+  <div class="panel" id="panel-lb">
+    <div class="lb-refresh">
+      <span>🏆 실시간 순위표</span>
+      <button onclick="loadLeaderboard()" title="새로고침">🔄</button>
+      <span id="lb-updated"></span>
+    </div>
+    <div id="lb-body"><div class="spin-wrap"><div class="spinner"></div></div></div>
+  </div>
+
+  <!-- 제출 바 -->
+  <div class="submit-bar" id="submit-bar">
+    <div class="inner">
+      <div class="progress"><b id="pick-done">0</b> / <b id="pick-total">0</b> 경기 예측</div>
+      <button class="btn btn-gold btn-full" id="submit-btn" onclick="submitPicks()">💾 저장</button>
+    </div>
+  </div>
+
+  <!-- 바텀 탭 -->
+  <nav class="bottom-nav">
+    <button class="nav-btn on" onclick="showPanel('bracket',this)"><span class="icon">📋</span>브래킷</button>
+    <button class="nav-btn" onclick="showPanel('mypicks',this)"><span class="icon">✅</span>내 예측</button>
+    <button class="nav-btn" onclick="showPanel('lb',this)"><span class="icon">🏆</span>순위표</button>
+  </nav>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────
+const SUPABASE_URL  = 'https://oqlbyscmeqoyepevnpwr.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTc1NDYsImV4cCI6MjA5MTczMzU0Nn0.GlUepyFe0jeo7q2o5pxzzi1V9W-nI85_fosMu-rB5jg';
+// ────────────────────────────────────────────
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ESPN 팀 로고 CDN 자동 매핑
+const LOGO_MAP = {
+  'OKC Thunder':            'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/okc.png',
+  'Oklahoma City Thunder':  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/okc.png',
+  'Boston Celtics':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/bos.png',
+  'New York Knicks':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/ny.png',
+  'Cleveland Cavaliers':    'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/cle.png',
+  'Detroit Pistons':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/det.png',
+  'Atlanta Hawks':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/atl.png',
+  'Toronto Raptors':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/tor.png',
+  'Houston Rockets':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/hou.png',
+  'Minnesota Timberwolves': 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/min.png',
+  'Denver Nuggets':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/den.png',
+  'Los Angeles Lakers':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/lal.png',
+  'Dallas Mavericks':       'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/dal.png',
+  'Phoenix Suns':           'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/phx.png',
+  'Portland Trail Blazers': 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/por.png',
+  'Golden State Warriors':  'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/gs.png',
+  'LA Clippers':            'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/lac.png',
+  'San Antonio Spurs':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/sa.png',
+  'Memphis Grizzlies':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mem.png',
+  'Miami Heat':             'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mia.png',
+  'Philadelphia 76ers':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/phi.png',
+  'Orlando Magic':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/orl.png',
+  'Charlotte Hornets':      'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/cha.png',
+  'Sacramento Kings':       'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/sac.png',
+  'New Orleans Pelicans':   'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/no.png',
+  'Utah Jazz':              'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/utah.png',
+  'Milwaukee Bucks':        'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/mil.png',
+  'Indiana Pacers':         'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/ind.png',
+  'Chicago Bulls':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/chi.png',
+  'Brooklyn Nets':          'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/bkn.png',
+  'Washington Wizards':     'https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/wsh.png',
+};
+function getLogo(team, override) {
+  if (override) return override;
+  return LOGO_MAP[team] || null;
+}
+
+const ROUND_LABEL = { 1:'1라운드', 2:'컨퍼런스 세미파이널', 3:'컨퍼런스 파이널', 4:'🏆 NBA 파이널' };
+const ROUND_ICON  = { 1:'①', 2:'②', 3:'③', 4:'🏆' };
+const SCORES = ['4-0','4-1','4-2','4-3'];
+
+let CU = null; // current user
+let games = [];
+let savedPicks = {};    // game_id -> pick row
+let localPicks = {};    // game_id -> {picked_winner, finals_score}
+let pickRates = {};     // game_id -> {team: pct}
+let settings = {};
+let showPickrate = false;
+
+// ── SHA256 ───────────────────────────────────
+async function sha256(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+// ── 로그인 UI ────────────────────────────────
+function switchTab(t, btn) {
+  document.querySelectorAll('.tab-pill').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('form-login').style.display = t==='login' ? '' : 'none';
+  document.getElementById('form-reg').style.display   = t==='reg'   ? '' : 'none';
+  document.getElementById('login-toast').textContent = '';
+}
+function setToast(msg, ok=false) {
+  const el = document.getElementById('login-toast');
+  el.textContent = msg; el.className = 'toast ' + (ok?'ok':'err');
+}
+
+async function doLogin() {
+  const nick = document.getElementById('l-nick').value.trim();
+  const pin  = document.getElementById('l-pin').value.trim();
+  if (!nick || pin.length!==4) return setToast('닉네임과 4자리 PIN을 입력하세요.');
+  const hash = await sha256(pin);
+  const {data,error} = await sb.from('users').select('*').eq('nickname',nick).eq('pin_hash',hash).single();
+  if (error||!data) return setToast('닉네임 또는 PIN이 맞지 않습니다.');
+  CU = data; ls('set','user',data); initMain();
+}
+
+async function doReg() {
+  const nick = document.getElementById('r-nick').value.trim();
+  const pin  = document.getElementById('r-pin').value.trim();
+  const pin2 = document.getElementById('r-pin2').value.trim();
+  if (!nick) return setToast('닉네임을 입력하세요.');
+  if (!/^\d{4}$/.test(pin)) return setToast('PIN은 숫자 4자리여야 합니다.');
+  if (pin !== pin2) return setToast('PIN이 일치하지 않습니다.');
+  const hash = await sha256(pin);
+  const {data,error} = await sb.from('users').insert({nickname:nick,pin_hash:hash}).select().single();
+  if (error) { if(error.code==='23505') return setToast('이미 사용 중인 닉네임입니다.'); return setToast('오류: '+error.message); }
+  CU = data; ls('set','user',data);
+  setToast('참가 완료! 잠시 후 이동합니다.', true);
+  setTimeout(initMain, 700);
+}
+
+function logout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  ls('del','user'); location.reload();
+}
+
+// ── 메인 초기화 ──────────────────────────────
+async function initMain() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display  = '';
+  document.getElementById('user-chip').style.display    = '';
+  document.getElementById('nick-label').textContent     = CU.nickname;
+
+  await loadSettings();
+  await loadAll();
+  renderBracket();
+}
+
+async function loadSettings() {
+  const {data} = await sb.from('settings').select('*');
+  if (!data) return;
+  data.forEach(r => settings[r.key] = r.value);
+  if (settings.event_title) document.getElementById('ev-title').textContent = settings.event_title;
+  // 픽률 공개 여부
+  showPickrate = settings.show_pickrate === 'true';
+}
+
+async function loadAll() {
+  const [{data:g},{data:p},{data:pr}] = await Promise.all([
+    sb.from('games').select('*').order('round').order('game_order'),
+    sb.from('picks').select('*').eq('user_id', CU.id),
+    sb.from('pickrate_view').select('*'),
+  ]);
+  games = g || [];
+  savedPicks = {}; localPicks = {};
+  (p||[]).forEach(pk => { savedPicks[pk.game_id] = pk; localPicks[pk.game_id] = {picked_winner:pk.picked_winner, finals_score:pk.finals_score}; });
+  pickRates = {};
+  (pr||[]).forEach(r => {
+    if (!pickRates[r.game_id]) pickRates[r.game_id] = {};
+    pickRates[r.game_id][r.picked_winner] = { count: r.pick_count, pct: parseFloat(r.pct) };
+  });
+}
+
+// ── 브래킷 렌더 ──────────────────────────────
+function renderBracket() {
+  const body = document.getElementById('bracket-body');
+  if (!games.length) {
+    document.getElementById('bracket-notice').textContent = '⏳ 관리자가 브래킷을 설정 중입니다. 잠시 후 새로고침 해주세요.';
+    body.innerHTML = '';
+    document.getElementById('submit-bar').style.display = 'none';
+    return;
+  }
+
+  // 공지 업데이트
+  const allLocked = games.every(g => g.is_locked || !g.team1 || !g.team2);
+  const notice = document.getElementById('bracket-notice');
+  if (allLocked) {
+    notice.textContent = '🔒 예측이 마감되었습니다. 결과 발표를 기다려주세요.';
+  } else {
+    const available = games.filter(g=>g.team1&&g.team2&&!g.is_locked&&!g.winner);
+    notice.innerHTML = `⚠️ <b>1라운드부터 파이널까지 전체를 예측</b>하세요. 경기 마감 전까지 수정 가능합니다.<br><span style="font-size:0.78rem;opacity:0.8">팀을 고르면 다음 라운드 대진에 자동 반영됩니다.</span>`;
+  }
+
+  // 내 픽 기반 다음 라운드 팀 계산
+  const projectedTeams = calcProjectedTeams();
+
+  let html = '';
+  const rounds = [...new Set(games.map(g=>g.round))].sort((a,b)=>a-b);
+  rounds.forEach(r => {
+    const rGames = games.filter(g=>g.round===r).sort((a,b)=>a.game_order-b.game_order);
+    html += `<div class="round-header"><span>${ROUND_ICON[r]}</span>${ROUND_LABEL[r]}</div>`;
+    rGames.forEach(game => { html += buildGameCard(game, projectedTeams); });
+  });
+
+  body.innerHTML = html;
+  updateSubmitBar();
+}
+
+// 내 픽으로 다음 라운드 팀 예상 계산
+function calcProjectedTeams() {
+  // key: next_game_id + '_' + next_slot → 예상 팀명
+  const proj = {};
+  games.forEach(g => {
+    if (!g.next_game_id) return;
+    const myPick = localPicks[g.id]?.picked_winner;
+    const actualWinner = g.winner;
+    const team = actualWinner || myPick || null;
+    if (team) {
+      proj[`${g.next_game_id}_${g.next_slot}`] = {
+        team,
+        logo: team === g.team1 ? getLogo(g.team1, g.team1_logo) : getLogo(g.team2, g.team2_logo)
+      };
+    }
+  });
+  return proj;
+}
+
+function buildGameCard(game, proj) {
+  const myPick = localPicks[game.id];
+  const saved  = savedPicks[game.id];
+  const locked = game.is_locked || !!game.winner;
+
+  // 팀 표시: 직접 등록 or 이전 라운드 내 픽에서 projected
+  const t1info = game.team1
+    ? { name: game.team1, logo: getLogo(game.team1, game.team1_logo) }
+    : proj[`${game.id}_1`] || null;
+  const t2info = game.team2
+    ? { name: game.team2, logo: getLogo(game.team2, game.team2_logo) }
+    : proj[`${game.id}_2`] || null;
+
+  const hasBothTeams = !!(t1info && t2info);
+
+  let cardClass = 'game-card';
+  if (myPick?.picked_winner) cardClass += ' has-pick';
+  if (locked) cardClass += ' locked';
+
+  // 픽률 표시 여부: 설정 + (마감 후 자동공개 옵션)
+  const showPR = showPickrate || (settings.pickrate_after_lock === 'true' && locked);
+  const pr = pickRates[game.id] || {};
+  const pr1 = t1info ? (pr[t1info.name]?.pct || 0) : 0;
+  const pr2 = t2info ? (pr[t2info.name]?.pct || 0) : 0;
+  const totalPicks = t1info ? ((pr[t1info.name]?.count||0) + (pr[t2info.name]?.count||0)) : 0;
+
+  const confLabel = game.conference ? `${game.conference} ` : '';
+
+  let html = `<div class="${cardClass}" id="gc-${game.id}">`;
+  html += `<div class="game-meta">
+    <span>${confLabel}${game.round === 4 ? 'Finals' : `G${game.game_order}`}</span>
+    ${game.winner ? `<span class="badge-done">결과발표</span>` : locked ? `<span class="badge-lock">🔒 마감</span>` : ''}
+  </div>`;
+
+  if (!hasBothTeams) {
+    html += `<div style="padding:14px 13px;color:var(--muted);font-size:0.82rem">⏳ 진출팀 결정 대기중<br><span style="font-size:0.75rem;opacity:0.7">이전 라운드를 먼저 예측하면 자동 표시됩니다</span></div>`;
+  } else {
+    [t1info, t2info].forEach((tinfo, idx) => {
+      const isT1 = idx === 0;
+      const isSelected = myPick?.picked_winner === tinfo.name;
+      const isWinner = game.winner === tinfo.name;
+      const isLoser  = game.winner && game.winner !== tinfo.name;
+
+      let rowClass = 'team-btn';
+      if (isSelected) rowClass += ' selected';
+      if (isWinner)   rowClass += ' winner-team';
+      if (isLoser)    rowClass += ' loser-team';
+
+      const logoHtml = tinfo.logo
+        ? `<img class="team-logo" src="${tinfo.logo}" alt="${tinfo.name}" onerror="this.style.display='none'">`
+        : `<div class="team-logo-placeholder">${tinfo.name.split(' ').map(w=>w[0]).slice(0,3).join('')}</div>`;
+
+      let iconHtml = '';
+      if (game.winner && saved?.picked_winner === tinfo.name) {
+        iconHtml = saved.is_correct ? '<span class="check-ok">✅</span>' : '<span class="check-no">❌</span>';
+      } else if (isSelected) {
+        iconHtml = '<span class="pick-star">★</span>';
+      }
+
+      html += `<button class="${rowClass}" onclick="pickTeam(${game.id},'${tinfo.name.replace(/'/g,"\\'")}',${!game.team1 && !isT1})"
+        ${locked || !hasBothTeams ? 'disabled' : ''}>
+        ${logoHtml}
+        <span class="team-name">${tinfo.name}</span>
+        ${iconHtml}
+      </button>`;
+    });
+
+    // 픽률 바
+    if (showPR && totalPicks > 0) {
+      const w1 = Math.max(pr1, 4); // 최소 너비 보장
+      html += `<div class="pickrate-row">
+        <div class="pr-left" style="width:${w1}%">${pr1}%</div>
+        <div class="pr-total">${totalPicks}명</div>
+        <div class="pr-right" style="width:${pr2}%">${pr2}%</div>
+      </div>`;
+    }
+  }
+
+  // 파이널 스코어
+  if (game.round === 4 && hasBothTeams) {
+    const selScore = myPick?.finals_score;
+    html += `<div class="finals-score-section">
+      <div class="label">🏆 시리즈 스코어 예측 (승자 기준)</div>
+      <div class="score-chips">
+        ${SCORES.map(s=>`<button class="score-chip ${selScore===s?'on':''}"
+          onclick="pickScore(${game.id},'${s}')"
+          ${locked?'disabled':''}>${s}</button>`).join('')}
+      </div>
+      ${game.finals_score ? `<div style="font-size:0.75rem;color:var(--gold);margin-top:7px">실제 결과: ${game.finals_score}</div>` : ''}
+    </div>`;
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function pickTeam(gameId, team) {
+  if (!localPicks[gameId]) localPicks[gameId] = {};
+  localPicks[gameId].picked_winner = team;
+  // 다음 라운드에서 이 팀이 보여야 하므로 전체 재렌더
+  renderBracket();
+}
+
+function pickScore(gameId, score) {
+  if (!localPicks[gameId]) localPicks[gameId] = {};
+  localPicks[gameId].finals_score = score;
+  const game = games.find(g=>g.id===gameId);
+  document.getElementById(`gc-${gameId}`).outerHTML = buildGameCard(game, calcProjectedTeams());
+  updateSubmitBar();
+}
+
+function updateSubmitBar() {
+  const bar = document.getElementById('submit-bar');
+  const available = games.filter(g=>g.team1&&g.team2&&!g.is_locked&&!g.winner);
+  if (!available.length) { bar.style.display='none'; return; }
+  bar.style.display = '';
+  const done = available.filter(g=>localPicks[g.id]?.picked_winner).length;
+  document.getElementById('pick-done').textContent  = done;
+  document.getElementById('pick-total').textContent = available.length;
+}
+
+async function submitPicks() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+
+  const rows = Object.entries(localPicks)
+    .filter(([,p])=>p.picked_winner)
+    .map(([gid,p])=>({
+      user_id: CU.id, game_id: parseInt(gid),
+      picked_winner: p.picked_winner, finals_score: p.finals_score||null
+    }));
+
+  const {error} = await sb.from('picks').upsert(rows, {onConflict:'user_id,game_id'});
+  if (error) { alert('저장 실패: '+error.message); }
+  else {
+    await loadAll();
+    renderBracket();
+    alert(`✅ ${rows.length}개 예측 저장 완료!`);
+  }
+  btn.disabled = false; btn.textContent = '💾 저장';
+}
+
+// ── 내 예측 ──────────────────────────────────
+async function renderMyPicks() {
+  const body = document.getElementById('mypicks-body');
+  await loadAll();
+  if (!Object.keys(savedPicks).length) {
+    body.innerHTML = '<div class="empty">아직 제출한 예측이 없습니다.<br>브래킷 탭에서 예측하고 저장하세요.</div>';
+    return;
+  }
+  const WEIGHTS = {1:1,2:2,3:4,4:8};
+  let total = 0, html = '';
+  const rounds = [...new Set(games.map(g=>g.round))].sort((a,b)=>a-b);
+  rounds.forEach(r => {
+    const rg = games.filter(g=>g.round===r && savedPicks[g.id]);
+    if (!rg.length) return;
+    html += `<div class="round-header"><span>${ROUND_ICON[r]}</span>${ROUND_LABEL[r]}</div>`;
+    rg.forEach(game => {
+      const pk = savedPicks[game.id];
+      let badge = '<span class="result-badge rb-wait">⏳ 대기중</span>';
+      if (game.winner) {
+        if (pk.is_correct) {
+          let pt = WEIGHTS[game.round];
+          if (game.round===4 && pk.finals_score===game.finals_score) pt+=4;
+          total+=pt;
+          badge = `<span class="result-badge rb-ok">✅ +${pt}점</span>`;
+        } else badge = '<span class="result-badge rb-no">❌</span>';
+      }
+      const scoreNote = pk.finals_score ? ` (${pk.finals_score})` : '';
+      html += `<div class="my-pick-card">
+        <div>
+          <div class="my-pick-matchup">${game.team1||'?'} vs ${game.team2||'?'}</div>
+          <div class="my-pick-team">${pk.picked_winner}${scoreNote}</div>
+          ${game.winner ? `<div class="my-pick-score-bonus" style="color:var(--muted);font-size:0.72rem">실제: ${game.winner}${game.finals_score?' '+game.finals_score:''}</div>` : ''}
+        </div>
+        ${badge}
+      </div>`;
+    });
+  });
+  html += `<div class="my-total">현재 누적 점수: ${total}점</div>`;
+  body.innerHTML = html;
+}
+
+// ── 리더보드 ─────────────────────────────────
+async function loadLeaderboard() {
+  const body = document.getElementById('lb-body');
+  body.innerHTML = '<div class="spin-wrap"><div class="spinner"></div></div>';
+  const {data,error} = await sb.from('leaderboard').select('*');
+  if (error||!data?.length) { body.innerHTML='<div class="empty">아직 순위 데이터가 없습니다.</div>'; return; }
+
+  let html = `<div class="lb-header"><span>순위</span><span>닉네임</span><span style="text-align:right">정답</span><span style="text-align:right">점수</span></div>`;
+  data.forEach((row,i) => {
+    const isMe = row.nickname===CU.nickname;
+    const rankEmoji = i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    html += `<div class="lb-row ${isMe?'me':''}">
+      <div class="rank-no ${i<3?`r${i+1}`:''}">${rankEmoji||i+1}</div>
+      <div>${row.nickname}${isMe?'<span class="lb-me-tag"> (나)</span>':''}</div>
+      <div class="lb-correct">${row.correct}/${row.judged}</div>
+      <div class="lb-score">${row.score}</div>
+    </div>`;
+  });
+  body.innerHTML = html;
+  document.getElementById('lb-updated').textContent = '방금 업데이트';
+}
+
+// ── 패널 전환 ────────────────────────────────
+function showPanel(name, btn) {
+  ['bracket','mypicks','lb'].forEach(p => document.getElementById(`panel-${p}`).classList.remove('on'));
+  document.getElementById(`panel-${name}`).classList.add('on');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('submit-bar').style.display = name==='bracket' ? '' : 'none';
+  if (name==='lb') loadLeaderboard();
+  if (name==='mypicks') renderMyPicks();
+  updateSubmitBar();
+}
+
+// ── localStorage 유틸 ────────────────────────
+function ls(op,k,v) {
+  try { if(op==='get') return JSON.parse(localStorage.getItem(k)); if(op==='set') localStorage.setItem(k,JSON.stringify(v)); if(op==='del') localStorage.removeItem(k); } catch{}
+}
+
+// ── 초기화 ───────────────────────────────────
+window.onload = async () => {
+  const stored = ls('get','user');
+  if (stored) {
+    const {data} = await sb.from('users').select('*').eq('id',stored.id).single();
+    if (data) { CU = data; initMain(); return; }
+    ls('del','user');
+  }
+};
+</script>
+</body>
+</html>
