@@ -114,7 +114,7 @@ header h1{font-size:0.95rem;font-weight:700}
   transition:background .12s;border-bottom:1px solid var(--bd);position:relative}
 .tb:last-of-type{border-bottom:none}
 .tb:hover:not(:disabled){background:rgba(255,255,255,.04)}
-.tb.picked{font-weight:600}
+.tb.picked{font-weight:600;padding-left:7px}
 .tb.winner-r{background:rgba(34,197,94,.08)}
 .tb.loser-r{opacity:.3}
 .tb.inferred .tn{color:var(--mu);font-style:italic}
@@ -576,7 +576,7 @@ function mcCard(game,proj,showPR){
       else if(isPicked&&!gameLocked)icon='<span class="ic2" style="color:var(--gold)">★</span>';
       else if(isPicked&&gameLocked&&sPick)icon='<span class="saved-lock">🔒</span>';
 
-      const pickStyle=isPicked?`background:${teamColor(ti.name)}22;border-left:3px solid ${teamColor(ti.name)}`:'';
+      const pickStyle=isPicked?`border-left:3px solid ${teamColor(ti.name)};background:rgba(255,199,44,0.12)`:'border-left:3px solid transparent';
       html+=`<button class="${cls2}" style="${pickStyle}" onclick="pickTeam(${game.id},'${ti.name.replace(/'/g,"\\'")}')" ${gameLocked?'disabled':''}>
         ${lgHtml}<span class="tn${!ti.fixed?' nd':''}">${ti.name}</span>${icon}
       </button>`;
@@ -602,8 +602,8 @@ function mcCard(game,proj,showPR){
           <div class="pr-b2" style="width:${p2||0}%;background:${col2}"></div>
         </div>
         <div class="pr-labels">
-          <span class="pr-lbl1" style="color:${col1}">${lbl1}</span>
-          <span class="pr-lbl2" style="color:${col2}">${lbl2}</span>
+          <span class="pr-lbl1" style="border-left:2px solid ${col1};padding-left:4px">${lbl1}</span>
+          <span class="pr-lbl2" style="border-right:2px solid ${col2};padding-right:4px">${lbl2}</span>
         </div>
       </div>`;
     }
