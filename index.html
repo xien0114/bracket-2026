@@ -130,13 +130,13 @@ header h1{font-size:0.95rem;font-weight:700}
 
 /* ── 픽률 바 (개선) ── */
 .pr-wrap{border-top:1px solid var(--bd)}
-.pr-bar{display:flex;height:24px;overflow:hidden;font-size:0.72rem;font-weight:700}
-.pr-b1{background:rgba(200,16,46,.5);color:#fff;display:flex;align-items:center;padding:0 7px;
-  transition:width .4s;white-space:nowrap;min-width:0}
-.pr-b2{background:rgba(29,66,138,.6);color:#fff;display:flex;align-items:center;
-  justify-content:flex-end;padding:0 7px;transition:width .4s;white-space:nowrap;min-width:0}
-.pr-labels{display:flex;justify-content:space-between;padding:2px 7px 3px;
-  font-size:0.65rem;color:var(--mu);background:rgba(255,255,255,.02)}
+.pr-bar{display:flex;height:8px;overflow:hidden;border-radius:0 0 0 0}
+.pr-b1{transition:width .4s;flex-shrink:0}
+.pr-b2{transition:width .4s;flex:1}
+.pr-labels{display:flex;justify-content:space-between;padding:4px 8px 5px;
+  font-size:0.68rem;font-weight:600;background:rgba(255,255,255,.02)}
+.pr-lbl1{color:var(--tx)}
+.pr-lbl2{color:var(--tx);text-align:right}
 
 /* ── 파이널 스코어 ── */
 .fscore{padding:10px;background:rgba(200,16,46,.06);border-top:1px solid var(--bd)}
@@ -598,8 +598,12 @@ function mcCard(game,proj,showPR){
       const lbl1=`${a1} ${p1}% (${c1}명)`, lbl2=`${a2} ${p2}% (${c2}명)`;
       html+=`<div class="pr-wrap">
         <div class="pr-bar">
-          <div class="pr-b1" style="width:${p1||0}%;background:${col1};color:${txt1}">${p1>14?lbl1:''}</div>
-          <div class="pr-b2" style="width:${p2||0}%;background:${col2};color:${txt2}">${p2>14?lbl2:''}</div>
+          <div class="pr-b1" style="width:${p1||0}%;background:${col1}"></div>
+          <div class="pr-b2" style="width:${p2||0}%;background:${col2}"></div>
+        </div>
+        <div class="pr-labels">
+          <span class="pr-lbl1" style="color:${col1}">${lbl1}</span>
+          <span class="pr-lbl2" style="color:${col2}">${lbl2}</span>
         </div>
       </div>`;
     }
