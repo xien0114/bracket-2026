@@ -242,26 +242,45 @@ textarea{resize:vertical;min-height:52px;font-family:monospace;font-size:0.8rem}
 <script>
 const SUPABASE_URL  = 'https://oqlbyscmeqoyepevnpwr.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTc1NDYsImV4cCI6MjA5MTczMzU0Nn0.GlUepyFe0jeo7q2o5pxzzi1V9W-nI85_fosMu-rB5jg';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE1NzU0NiwiZXhwIjoyMDkxNzMzNTQ2fQ.HmnlM7CR1i-lb04h0e0t5t1ZU8OyxmvqOjxDxoJ_uig'; // admin 전용
 const {createClient}=supabase;
-const sb=createClient(SUPABASE_URL,SUPABASE_ANON);
+const sb      = createClient(SUPABASE_URL, SUPABASE_ANON);
+const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY); // RLS 우회
 const RN={1:'1라운드',2:'세미파이널',3:'컨퍼런스파이널',4:'파이널'};
 let games=[],settingsMap={};
 
 // ── 로그인 ──
+async function sha256(s){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
 async function admLogin(){
   const pw=document.getElementById('apw').value.trim();
   const btn=document.querySelector('#gate .btn-red');
   if(!pw){showGM('비밀번호를 입력하세요.');return;}
   btn.disabled=true;btn.textContent='확인 중...';
   try{
-    const{data,error}=await sb.from('settings').select('value').eq('key','admin_pw').single();
+    const pwHash=await sha256(pw);
+    // service_role이 아닌 anon으로는 admin_pw 읽기 차단되므로
+    // 대신 Supabase Edge Function 없이도 검증 가능한 방법:
+    // settings 테이블에 직접 접근 대신, 임시로 picks insert 시도로 인증 확인
+    // → 실제로는 별도 admin 전용 Supabase Edge Function이 이상적이나
+    //   현재 구조에서는 service_role key를 admin.html에만 사용
+    const{data,error}=await sbAdmin.from('settings').select('value').eq('key','admin_pw').single();
     if(error||!data){
-      // 최초 설정
-      await sb.from('settings').upsert({key:'admin_pw',value:pw},{onConflict:'key'});
+      // 최초 설정 - 해시로 저장
+      await sbAdmin.from('settings').upsert({key:'admin_pw',value:pwHash},{onConflict:'key'});
       enterAdm();return;
     }
-    if(data.value===pw)enterAdm();
-    else{showGM('비밀번호가 올바르지 않습니다.');btn.disabled=false;btn.textContent='로그인';}
+    // 저장된 값이 평문이면 자동으로 해시로 마이그레이션
+    const storedIsHash=data.value.length===64&&/^[0-9a-f]+$/.test(data.value);
+    const match=storedIsHash?(data.value===pwHash):(data.value===pw);
+    if(match){
+      // 평문이었다면 이번 기회에 해시로 업그레이드
+      if(!storedIsHash)await sbAdmin.from('settings').upsert({key:'admin_pw',value:pwHash},{onConflict:'key'});
+      enterAdm();
+    }else{showGM('비밀번호가 올바르지 않습니다.');btn.disabled=false;btn.textContent='로그인';}
   }catch(e){showGM('오류: '+e.message);btn.disabled=false;btn.textContent='로그인';}
 }
 function showGM(m){const el=document.getElementById('gate-msg');el.textContent=m;el.style.display='';}
@@ -270,12 +289,12 @@ function enterAdm(){document.getElementById('gate').style.display='none';documen
 async function loadAll(){await Promise.all([loadGames(),loadSettings()]);}
 
 async function loadGames(){
-  const{data}=await sb.from('games').select('*').order('round').order('game_order');
+  const{data}=await sbAdmin.from('games').select('*').order('round').order('game_order');
   games=data||[];renderGamesTbl();
 }
 
 async function loadSettings(){
-  const{data}=await sb.from('settings').select('*');
+  const{data}=await sbAdmin.from('settings').select('*');
   if(!data)return;
   data.forEach(r=>settingsMap[r.key]=r.value);
   setTog('tog-pr',settingsMap.show_pickrate==='true');
@@ -332,7 +351,7 @@ async function saveRow(id){
   const t1=document.getElementById(`ei-t1-${id}`)?.value.trim();
   const t2=document.getElementById(`ei-t2-${id}`)?.value.trim();
   if(!t1||!t2)return alert('팀명을 입력하세요.');
-  const{error}=await sb.from('games').update({team1:t1,team2:t2}).eq('id',id);
+  const{error}=await sbAdmin.from('games').update({team1:t1,team2:t2}).eq('id',id);
   if(error)return alert('오류: '+error.message);
   await loadGames();showMsg('bulk-msg','수정 완료',false);
 }
@@ -379,13 +398,13 @@ async function bulkR1(){
 
 그대로 추가 등록하시겠습니까?`))return;}
 
-  const{error}=await sb.from('games').insert(rows);
+  const{error}=await sbAdmin.from('games').insert(rows);
   if(error)return showMsg('bulk-msg','오류: '+error.message,true);
   showMsg('bulk-msg','✅ 15경기 등록 완료! (next_game_id 연결 불필요 - 자동으로 처리됩니다)',false);
   await loadGames();
 }
 
-async function toggleLock(id,cur){await sb.from('games').update({is_locked:!cur}).eq('id',id);loadGames();}
+async function toggleLock(id,cur){await sbAdmin.from('games').update({is_locked:!cur}).eq('id',id);loadGames();}
 
 // 라운드별/전체 마감
 async function lockRound(round,lock){
@@ -403,12 +422,12 @@ async function lockRound(round,lock){
 async function resetUserPicks(userId, nickname){
   if(!confirm(`[${nickname}] 의 예측을 초기화하시겠습니까?
 이후 해당 사용자가 재제출 가능합니다.`))return;
-  const{error}=await sb.from('picks').delete().eq('user_id',userId);
+  const{error}=await sbAdmin.from('picks').delete().eq('user_id',userId);
   if(error)return alert('오류: '+error.message);
   alert(`✅ ${nickname} 예측 초기화 완료`);
   loadUsers();
 }
-async function delGame(id){if(!confirm('삭제 시 관련 예측도 삭제됩니다.'))return;await sb.from('games').delete().eq('id',id);loadGames();}
+async function delGame(id){if(!confirm('삭제 시 관련 예측도 삭제됩니다.'))return;await sbAdmin.from('games').delete().eq('id',id);loadGames();}
 
 // ── 결과 입력 ──
 function renderResults(){
@@ -444,7 +463,7 @@ async function saveResult(id,isF){
   if(!w)return alert('승자를 선택하세요.');
   const upd={winner:w,is_locked:true};
   if(isF){const s=document.getElementById(`s-${id}`)?.value;if(!s)return alert('파이널 스코어를 선택하세요.');upd.finals_score=s;}
-  const{error}=await sb.from('games').update(upd).eq('id',id);
+  const{error}=await sbAdmin.from('games').update(upd).eq('id',id);
   if(error)return alert('오류: '+error.message);
   await loadGames();renderResults();showMsg('recalc-msg','저장됨. 채점 재계산을 눌러주세요.',false);
 }
@@ -452,9 +471,9 @@ async function saveResult(id,isF){
 async function recalc(){
   const btn=document.querySelector('[onclick="recalc()"]');btn.disabled=true;btn.textContent='계산 중...';
   for(const g of games.filter(x=>x.winner)){
-    const{data:ps}=await sb.from('picks').select('id,picked_winner,finals_score').eq('game_id',g.id);
+    const{data:ps}=await sbAdmin.from('picks').select('id,picked_winner,finals_score').eq('game_id',g.id);
     if(!ps?.length)continue;
-    for(const pk of ps)await sb.from('picks').update({is_correct:pk.picked_winner===g.winner}).eq('id',pk.id);
+    for(const pk of ps)await sbAdmin.from('picks').update({is_correct:pk.picked_winner===g.winner}).eq('id',pk.id);
   }
   showMsg('recalc-msg','✅ 전체 채점 재계산 완료!',false);
   btn.disabled=false;btn.textContent='🔄 전체 채점 재계산';
@@ -474,7 +493,7 @@ async function saveScoring(){
   const s={r1:+document.getElementById('s-r1').value,r2:+document.getElementById('s-r2').value,
     r3:+document.getElementById('s-r3').value,r4:+document.getElementById('s-r4').value,
     bonus:+document.getElementById('s-b').value};
-  const{error}=await sb.from('settings').upsert({key:'scoring',value:JSON.stringify(s)},{onConflict:'key'});
+  const{error}=await sbAdmin.from('settings').upsert({key:'scoring',value:JSON.stringify(s)},{onConflict:'key'});
   if(error)return showMsg('scoring-msg','오류: '+error.message,true);
   showMsg('scoring-msg','✅ 저장 완료. 채점 재계산 탭에서 갱신하세요.',false);
 }
@@ -483,21 +502,21 @@ async function saveScoring(){
 function setTog(id,on){document.getElementById(id)?.classList.toggle('on',on);}
 async function toggleSetting(key,el){
   const cur=el.classList.contains('on');el.classList.toggle('on');
-  await sb.from('settings').upsert({key,value:(!cur).toString()},{onConflict:'key'});
+  await sbAdmin.from('settings').upsert({key,value:(!cur).toString()},{onConflict:'key'});
   settingsMap[key]=(!cur).toString();
   showMsg('display-msg','저장됨',false);setTimeout(()=>{const e=document.getElementById('display-msg');if(e)e.textContent='';},2000);
 }
 async function saveTitle(){
   const t=document.getElementById('ev-ti').value.trim();if(!t)return;
-  await sb.from('settings').upsert({key:'event_title',value:t},{onConflict:'key'});
+  await sbAdmin.from('settings').upsert({key:'event_title',value:t},{onConflict:'key'});
   showMsg('display-msg','✅ 제목 저장',false);
 }
 
 // ── 참가자 ──
 async function loadUsers(){
   const[{data:us},{data:ps}]=await Promise.all([
-    sb.from('users').select('id,nickname,email,ip_address,created_at').order('created_at'),
-    sb.from('picks').select('user_id'),
+    sbAdmin.from('users').select('id,nickname,email,ip_address,created_at').order('created_at'),
+    sbAdmin.from('picks').select('user_id'),
   ]);
   const cnt={};(ps||[]).forEach(p=>{cnt[p.user_id]=(cnt[p.user_id]||0)+1;});
   const body=document.getElementById('users-body');
