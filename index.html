@@ -572,7 +572,7 @@ function mcCard(game,proj,showPR){
       const p1=Math.round(c1*100/total);
       const p2=100-p1;
       const a1=abbr(t1.name), a2=abbr(t2.name);
-      const lbl1=`${a1} ${p1}%(${c1}명)`, lbl2=`${a2} ${p2}%(${c2}명)`;
+      const lbl1=`${a1} ${p1}% (${c1}명)`, lbl2=`${a2} ${p2}% (${c2}명)`;
       html+=`<div class="pr-wrap">
         <div class="pr-bar">
           <div class="pr-b1" style="width:${p1||0}%">${p1>12?lbl1:''}</div>
