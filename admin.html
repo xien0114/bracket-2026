@@ -259,29 +259,31 @@ async function admLogin(){
   const pw=document.getElementById('apw').value.trim();
   const btn=document.querySelector('#gate .btn-red');
   if(!pw){showGM('비밀번호를 입력하세요.');return;}
-  btn.disabled=true;btn.textContent='확인 중...';
+  btn.disabled=true; btn.textContent='확인 중...';
   try{
     const pwHash=await sha256(pw);
-    // service_role이 아닌 anon으로는 admin_pw 읽기 차단되므로
-    // 대신 Supabase Edge Function 없이도 검증 가능한 방법:
-    // settings 테이블에 직접 접근 대신, 임시로 picks insert 시도로 인증 확인
-    // → 실제로는 별도 admin 전용 Supabase Edge Function이 이상적이나
-    //   현재 구조에서는 service_role key를 admin.html에만 사용
-    const{data,error}=await sbAdmin.from('settings').select('value').eq('key','admin_pw').single();
-    if(error||!data){
-      // 최초 설정 - 해시로 저장
-      await sbAdmin.from('settings').upsert({key:'admin_pw',value:pwHash},{onConflict:'key'});
-      enterAdm();return;
+    // sb(anon)로 읽기 — 해시값은 읽혀도 역추적 불가하므로 안전
+    const{data,error}=await sb.from('settings').select('value').eq('key','admin_pw').maybeSingle();
+    if(!data){
+      // admin_pw 행 없음 → 최초 설정: sbAdmin으로 저장
+      const{error:e2}=await sbAdmin.from('settings').upsert({key:'admin_pw',value:pwHash},{onConflict:'key'});
+      if(e2){showGM('저장 실패: '+e2.message);btn.disabled=false;btn.textContent='로그인';return;}
+      enterAdm(); return;
     }
-    // 저장된 값이 평문이면 자동으로 해시로 마이그레이션
+    // 저장된 값이 평문이면 해시로 마이그레이션
     const storedIsHash=data.value.length===64&&/^[0-9a-f]+$/.test(data.value);
     const match=storedIsHash?(data.value===pwHash):(data.value===pw);
     if(match){
-      // 평문이었다면 이번 기회에 해시로 업그레이드
       if(!storedIsHash)await sbAdmin.from('settings').upsert({key:'admin_pw',value:pwHash},{onConflict:'key'});
       enterAdm();
-    }else{showGM('비밀번호가 올바르지 않습니다.');btn.disabled=false;btn.textContent='로그인';}
-  }catch(e){showGM('오류: '+e.message);btn.disabled=false;btn.textContent='로그인';}
+    }else{
+      showGM('비밀번호가 올바르지 않습니다.');
+      btn.disabled=false; btn.textContent='로그인';
+    }
+  }catch(e){
+    showGM('오류: '+e.message);
+    btn.disabled=false; btn.textContent='로그인';
+  }
 }
 function showGM(m){const el=document.getElementById('gate-msg');el.textContent=m;el.style.display='';}
 function enterAdm(){document.getElementById('gate').style.display='none';document.getElementById('adm').style.display='';loadAll();}
