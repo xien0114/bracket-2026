@@ -242,10 +242,9 @@ textarea{resize:vertical;min-height:52px;font-family:monospace;font-size:0.8rem}
 <script>
 const SUPABASE_URL  = 'https://oqlbyscmeqoyepevnpwr.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTc1NDYsImV4cCI6MjA5MTczMzU0Nn0.GlUepyFe0jeo7q2o5pxzzi1V9W-nI85_fosMu-rB5jg';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xbGJ5c2NtZXFveWVwZXZucHdyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE1NzU0NiwiZXhwIjoyMDkxNzMzNTQ2fQ.HmnlM7CR1i-lb04h0e0t5t1ZU8OyxmvqOjxDxoJ_uig'; // admin 전용
 const {createClient}=supabase;
-const sb      = createClient(SUPABASE_URL, SUPABASE_ANON);
-const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY); // RLS 우회
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const sbAdmin = sb; // anon으로 통일 (RLS 정책으로 제어)
 const RN={1:'1라운드',2:'세미파이널',3:'컨퍼런스파이널',4:'파이널'};
 let games=[],settingsMap={};
 
