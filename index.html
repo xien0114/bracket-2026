@@ -91,6 +91,9 @@ header h1{font-size:0.95rem;font-weight:700}
 /* 라운드 컬럼 */
 .rcol{display:flex;flex-direction:column;align-items:center;justify-content:space-around;
   width:calc(var(--card-w) + 20px);flex-shrink:0;align-self:stretch;position:relative;z-index:2}
+/* 1라운드는 카드 4개라 gap 추가 */
+#cw1 .mc, #ce1 .mc{margin-bottom:8px}
+#cw1 .mc:last-child, #ce1 .mc:last-child{margin-bottom:0}
 .finals-center{display:flex;flex-direction:column;align-items:center;justify-content:center;
   width:calc(var(--card-w) + 30px);flex-shrink:0;position:relative;z-index:2;padding:0 8px}
 
@@ -132,8 +135,8 @@ header h1{font-size:0.95rem;font-weight:700}
   transition:width .4s;white-space:nowrap;min-width:0}
 .pr-b2{background:rgba(29,66,138,.6);color:#fff;display:flex;align-items:center;
   justify-content:flex-end;padding:0 7px;transition:width .4s;white-space:nowrap;min-width:0}
-.pr-count{text-align:center;font-size:0.65rem;color:var(--mu);padding:2px 0 3px;
-  background:rgba(255,255,255,.02)}
+.pr-labels{display:flex;justify-content:space-between;padding:2px 7px 3px;
+  font-size:0.65rem;color:var(--mu);background:rgba(255,255,255,.02)}
 
 /* ── 파이널 스코어 ── */
 .fscore{padding:10px;background:rgba(200,16,46,.06);border-top:1px solid var(--bd)}
@@ -278,7 +281,13 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // ────────────────────────────────────────────
 
 const {createClient} = supabase;
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  }
+});
 
 const LOGOS = {
   'OKC Thunder':'okc','Oklahoma City Thunder':'okc',
@@ -303,6 +312,26 @@ function logo(team, override){
   const c=LOGOS[team];
   return c?`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/${c}.png`:null;
 }
+
+const ABBR = {
+  'OKC Thunder':'OKC','Oklahoma City Thunder':'OKC',
+  'Boston Celtics':'BOS','New York Knicks':'NYK',
+  'Cleveland Cavaliers':'CLE','Detroit Pistons':'DET',
+  'Atlanta Hawks':'ATL','Toronto Raptors':'TOR',
+  'Houston Rockets':'HOU','Minnesota Timberwolves':'MIN',
+  'Denver Nuggets':'DEN','Los Angeles Lakers':'LAL',
+  'Dallas Mavericks':'DAL','Phoenix Suns':'PHX',
+  'Portland Trail Blazers':'POR','Golden State Warriors':'GSW',
+  'San Antonio Spurs':'SAS','LA Clippers':'LAC',
+  'Memphis Grizzlies':'MEM','Miami Heat':'MIA',
+  'Philadelphia 76ers':'PHI','Orlando Magic':'ORL',
+  'Charlotte Hornets':'CHA','Sacramento Kings':'SAC',
+  'New Orleans Pelicans':'NOP','Utah Jazz':'UTA',
+  'Milwaukee Bucks':'MIL','Indiana Pacers':'IND',
+  'Chicago Bulls':'CHI','Brooklyn Nets':'BKN',
+  'Washington Wizards':'WAS',
+};
+function abbr(team){ return ABBR[team]||team.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,3); }
 
 const RNAME={1:'1라운드',2:'세미파이널',3:'컨퍼런스 파이널',4:'🏆 파이널'};
 const SCORES=['4-0','4-1','4-2','4-3'];
@@ -335,10 +364,18 @@ async function signInGoogle(){
 }
 
 // OAuth 콜백 + 세션 복원 처리
+let _authHandling = false;
 sb.auth.onAuthStateChange(async(event, session)=>{
-  if(session?.user && !CU){
+  if(event==='SIGNED_OUT'){CU=null;authUser=null;return;}
+  if(session?.user && !CU && !_authHandling){
+    _authHandling = true;
     authUser = session.user;
     await handleAuthUser(session.user);
+    _authHandling = false;
+  }
+  // 토큰 자동 갱신 이벤트 - 세션 유지
+  if(event==='TOKEN_REFRESHED' && session?.user && CU){
+    authUser = session.user;
   }
 });
 
@@ -490,10 +527,16 @@ function mcCard(game,proj,showPR){
   html+='</div>';
 
   if(!t1&&!t2){
-    html+=`<div style="padding:12px 10px;color:var(--mu);font-size:0.72rem;text-align:center">이전 라운드를<br>먼저 예측하세요</div>`;
+    // 2팀 높이 유지하면서 안내 문구 표시
+    html+=`<button class="tb" disabled style="opacity:0.4">
+      <div class="lph">?</div><span class="tn nd">이전 라운드를 먼저 예측하세요</span>
+    </button>
+    <button class="tb" disabled style="opacity:0.4">
+      <div class="lph">?</div><span class="tn nd">&nbsp;</span>
+    </button>`;
   } else {
     [t1,t2].forEach((ti)=>{
-      if(!ti){html+=`<button class="tb" disabled><div class="lph">?</div><span class="tn nd">대기중</span></button>`;return;}
+      if(!ti){html+=`<button class="tb" disabled style="opacity:0.35"><div class="lph">?</div><span class="tn nd">대기중</span></button>`;return;}
       const isPicked=lPick?.picked_winner===ti.name;
       const isWinner=game.winner===ti.name;
       const isLoser=game.winner&&game.winner!==ti.name;
@@ -528,12 +571,16 @@ function mcCard(game,proj,showPR){
     if(total>0){
       const p1=Math.round(c1*100/total);
       const p2=100-p1;
+      const a1=abbr(t1.name), a2=abbr(t2.name);
+      const lbl1=`${a1} ${p1}%(${c1}명)`, lbl2=`${a2} ${p2}%(${c2}명)`;
       html+=`<div class="pr-wrap">
         <div class="pr-bar">
-          ${p1>0?`<div class="pr-b1" style="width:${p1}%">${p1}%</div>`:''}
-          ${p2>0?`<div class="pr-b2" style="width:${p2}%">${p2}%</div>`:''}
+          <div class="pr-b1" style="width:${p1||0}%">${p1>12?lbl1:''}</div>
+          <div class="pr-b2" style="width:${p2||0}%">${p2>12?lbl2:''}</div>
         </div>
-        <div class="pr-count">${total}명 참여</div>
+        <div class="pr-labels">
+          <span>${lbl1}</span><span>${lbl2}</span>
+        </div>
       </div>`;
     }
   }
@@ -609,18 +656,21 @@ function pickScore(gameId,score){
 function updateSaveBar(){
   const bar=document.getElementById('save-bar');
   const proj=calcProj();
-  // 픽 가능한 경기: 두 팀이 있고, 잠기지 않았으며, 아직 저장 안 된 것
+  const total=games.length||15; // 항상 전체 경기수(15) 기준
   const pickable=games.filter(g=>{
     if(g.is_locked||g.winner||savedPicks[g.id])return false;
     const t1ok=(g.team1&&g.team1!=='TBD')||!!proj[`${g.id}_1`];
     const t2ok=(g.team2&&g.team2!=='TBD')||!!proj[`${g.id}_2`];
     return t1ok&&t2ok;
   });
-  if(!pickable.length){bar.style.display='none';return;}
+  // 저장 완료된 것 + 미저장 픽된 것 합산
+  const savedCount=Object.keys(savedPicks).length;
+  const newDone=pickable.filter(g=>localPicks[g.id]?.picked_winner).length;
+  const done=savedCount+newDone;
+  if(!pickable.length&&!done){bar.style.display='none';return;}
   bar.style.display='flex';
-  const done=pickable.filter(g=>localPicks[g.id]?.picked_winner).length;
   document.getElementById('p-done').textContent=done;
-  document.getElementById('p-total').textContent=pickable.length;
+  document.getElementById('p-total').textContent=total;
 }
 
 async function submitPicks(){
